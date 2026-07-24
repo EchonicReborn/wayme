@@ -1,0 +1,14 @@
+{
+  "name": "wayme-server",
+  "version": "1.0.0",
+  "description": "Real backend for WAYME — lets the three separately-installed apps (user, driver, admin) sync over the network instead of only within one browser's localStorage.",
+  "main": "server.js",
+  "scripts": {
+    "start": "node server.js"
+  },
+  "dependencies": {
+    "express": "^4.19.2",
+    "socket.io": "^4.7.5",
+    "cors": "^2.8.5"
+  }
+}

@@ -1,0 +1,185 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, viewport-fit=cover" />
+<title>WAYME — Partner</title>
+<meta name="theme-color" content="#075985" />
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@500;600;700&family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+<link rel="stylesheet" href="../shared/css/tokens.css" />
+<link rel="stylesheet" href="css/app.css" />
+</head>
+<body>
+<div class="app-shell" id="appShell">
+<div id="screensWrap" class="screens-wrap">
+
+  <section class="screen active" id="screen-splash">
+    <div class="splash-wrap">
+      <div class="splash-logo">
+        <svg width="86" height="86" viewBox="0 0 86 86" fill="none">
+          <circle cx="43" cy="43" r="43" fill="white" fill-opacity="0.12"/>
+          <path d="M20 58 L34 26 L43 46 L52 26 L66 58" stroke="white" stroke-width="6" stroke-linecap="round" stroke-linejoin="round" fill="none"/>
+          <circle cx="66" cy="58" r="4.5" fill="#FBBF24"/>
+        </svg>
+      </div>
+      <h1 class="display splash-title">WAYME</h1>
+      <p class="splash-tag">Partner app · Drive, deliver, earn.</p>
+    </div>
+  </section>
+
+  <section class="screen" id="screen-login">
+    <div class="scroll-body" style="justify-content:center; display:flex; flex-direction:column; flex:1;">
+      <div class="wayme-mark-sm">
+        <svg width="40" height="40" viewBox="0 0 86 86" fill="none">
+          <circle cx="43" cy="43" r="43" fill="#075985"/>
+          <path d="M20 58 L34 26 L43 46 L52 26 L66 58" stroke="white" stroke-width="6" stroke-linecap="round" stroke-linejoin="round" fill="none"/>
+          <circle cx="66" cy="58" r="4.5" fill="#FBBF24"/>
+        </svg>
+      </div>
+      <h2 style="margin-top:18px;">Partner sign in</h2>
+      <p class="muted">Accept rides, deliveries and grow your earnings.</p>
+      <label class="label-eyebrow">Phone number</label>
+      <div style="display:flex; gap:8px; margin-top:8px;">
+        <div class="input" style="width:64px; text-align:center; flex-shrink:0;">🇮🇩 +62</div>
+        <input class="input" id="phoneInput" type="tel" placeholder="813 9988 7766" inputmode="numeric" />
+      </div>
+      <label class="label-eyebrow" style="margin-top:12px; display:block;">Vehicle plate</label>
+      <input class="input" id="plateInput" placeholder="B 3921 WAY" style="margin-top:6px;" />
+      <button class="btn btn-primary btn-block" style="margin-top:18px;" onclick="DriverApp.login()">Go online-ready</button>
+      <p class="fineprint">Demo mode — no real verification is performed.</p>
+    </div>
+  </section>
+
+  <section class="screen" id="screen-dashboard">
+    <header class="home-header">
+      <div><p class="home-greeting">Welcome back</p><h2 style="margin:2px 0 0;" id="driverNameHeader">Andi Pratama</h2></div>
+      <label class="online-switch"><input type="checkbox" id="onlineToggle" onchange="DriverApp.toggleOnline(this.checked)"><span class="switch-track"><span class="switch-thumb"></span></span></label>
+    </header>
+    <div id="mapDashboard" class="map-box" style="height:34%;"></div>
+    <div class="scroll-body">
+      <div class="status-banner" id="statusBanner">You're offline — go online to receive requests.</div>
+      <div class="earn-row">
+        <div class="earn-card"><span class="label-eyebrow">Today</span><strong id="earnToday">Rp0</strong></div>
+        <div class="earn-card"><span class="label-eyebrow">Trips</span><strong id="tripsToday">0</strong></div>
+        <div class="earn-card"><span class="label-eyebrow">Rating</span><strong>⭐ 4.9</strong></div>
+      </div>
+      <h3 style="margin:20px 0 10px;">Recent trips</h3>
+      <div id="recentTrips"><p class="muted">No trips yet today.</p></div>
+    </div>
+  </section>
+
+  <section class="screen" id="screen-earnings">
+    <div class="topbar"><h2>Earnings</h2></div>
+    <div class="scroll-body">
+      <div class="balance-card">
+        <p class="label-eyebrow" style="color:rgba(255,255,255,0.8);">Available balance</p>
+        <h1 class="display" id="driverBalanceBig" style="color:white; margin:6px 0 16px;">Rp0</h1>
+        <button class="btn" style="background:rgba(255,255,255,0.18); color:white;" onclick="DriverApp.cashOut()">Cash out</button>
+      </div>
+      <p class="muted" id="commissionNote" style="margin-top:10px;">Platform commission: —</p>
+      <h3 style="margin:20px 0 10px;">Trip history</h3>
+      <div id="earningsHistory"><p class="muted">No completed trips yet.</p></div>
+    </div>
+  </section>
+
+  <section class="screen" id="screen-chat">
+    <div class="topbar"><h2>Chat</h2></div>
+    <div class="scroll-body" id="chatListBody"><p class="muted">Chat with your user appears here once you have an active trip.</p></div>
+  </section>
+
+  <section class="screen" id="screen-chat-active">
+    <div class="topbar">
+      <button class="icon-btn" onclick="DriverApp.go('trip')">‹</button>
+      <div class="avatar" style="width:34px;height:34px; display:flex;align-items:center;justify-content:center; background:var(--sky-900); color:white; font-weight:700;">U</div>
+      <h2>User</h2>
+    </div>
+    <div class="scroll-body" id="chatMessages" style="flex:1;"></div>
+    <div class="chat-input-row"><input class="input" id="chatInput" placeholder="Message your user…" /><button class="btn btn-primary" style="padding:12px 16px;" onclick="DriverApp.sendChat()">➤</button></div>
+  </section>
+
+  <section class="screen" id="screen-profile">
+    <div class="topbar"><h2>Profile</h2></div>
+    <div class="scroll-body">
+      <div class="card" style="display:flex; align-items:center; gap:14px;">
+        <div class="avatar" style="width:56px; height:56px; display:flex; align-items:center; justify-content:center; font-size:22px; background:var(--sky-900); color:white;">A</div>
+        <div><h3 style="margin:0;">Andi Pratama</h3><p class="muted" style="margin:2px 0 0;" id="profilePlate">Honda Vario · B 3921 WAY</p></div>
+      </div>
+      <div class="card" style="margin-top:12px; display:flex; justify-content:space-between; align-items:center;">
+        <div><span class="label-eyebrow">Payout bank account</span><p style="margin:4px 0 0; font-weight:600;" id="profileBankInfo">—</p></div>
+        <span>🏦</span>
+      </div>
+      <div class="settings-list">
+        <button class="settings-row">🚗 Vehicle documents</button>
+        <button class="settings-row">🏦 Bank &amp; payout details</button>
+        <button class="settings-row">🛡️ Safety centre</button>
+        <button class="settings-row">❓ Help &amp; support</button>
+      </div>
+      <button class="btn btn-secondary btn-block" style="margin-top:18px;" onclick="DriverApp.logout()">Log out</button>
+    </div>
+  </section>
+
+  <section class="screen" id="screen-trip">
+    <div id="mapTrip" class="map-box" style="height:100%; position:absolute; inset:0;"></div>
+    <div class="trip-topbar">
+      <span class="chip" id="tripStatusChip">Heading to pickup</span>
+      <button class="icon-btn" onclick="DriverApp.sosAlert()">🛟</button>
+    </div>
+    <div class="geofence-banner" id="geofenceBanner" style="display:none;">📍 Approaching destination geofence</div>
+    <div class="trip-sheet">
+      <div class="sheet-handle"></div>
+      <div class="driver-row">
+        <div class="avatar" style="width:48px;height:48px; display:flex;align-items:center;justify-content:center; background:var(--sky-900); color:white; font-weight:700;">U</div>
+        <div style="flex:1;"><strong>User</strong><p class="muted" style="margin:1px 0 0;" id="tripVehicleInfo">Requested Motorbike ride</p></div>
+        <button class="icon-btn" onclick="DriverApp.callUser()">📞</button>
+        <button class="icon-btn" onclick="DriverApp.openChat()">💬</button>
+      </div>
+      <div class="trip-route">
+        <div><span class="stop-dot stop-dot-pickup"></span> <span id="tripPickupText">Pickup</span></div>
+        <div><span class="stop-dot stop-dot-drop"></span> <span id="tripDropText">Destination</span></div>
+      </div>
+      <div class="trip-meta"><span>Distance <strong id="tripDistance">—</strong></span><span>Fare <strong id="tripFare">—</strong></span></div>
+      <div style="display:flex; gap:10px; margin-top:12px;">
+        <button class="btn btn-secondary" style="flex:1;" onclick="DriverApp.openNavigation()">🧭 Navigate</button>
+        <button class="btn btn-primary" style="flex:1;" id="tripActionBtn" onclick="DriverApp.advanceTrip()">Arrived at pickup</button>
+      </div>
+    </div>
+  </section>
+
+</div><!-- /screensWrap -->
+
+<nav class="tabbar" id="mainTabbar">
+  <button class="tab-item active" data-tab="dashboard" onclick="DriverApp.switchTab('dashboard')"><svg viewBox="0 0 24 24" fill="none"><path d="M4 11.5 12 4l8 7.5M6 10v9h12v-9" stroke="currentColor" stroke-width="2" stroke-linejoin="round" fill="none"/></svg>Dashboard</button>
+  <button class="tab-item" data-tab="earnings" onclick="DriverApp.switchTab('earnings')"><svg viewBox="0 0 24 24" fill="none"><rect x="3" y="6" width="18" height="13" rx="2" stroke="currentColor" stroke-width="2"/><path d="M3 10h18" stroke="currentColor" stroke-width="2"/></svg>Earnings</button>
+  <button class="tab-item" data-tab="chat" onclick="DriverApp.switchTab('chat')"><svg viewBox="0 0 24 24" fill="none"><path d="M4 5h16v11H8l-4 4V5Z" stroke="currentColor" stroke-width="2" stroke-linejoin="round"/></svg>Chat</button>
+  <button class="tab-item" data-tab="profile" onclick="DriverApp.switchTab('profile')"><svg viewBox="0 0 24 24" fill="none"><circle cx="12" cy="8" r="3.5" stroke="currentColor" stroke-width="2"/><path d="M4.5 20c1.5-4 4.5-6 7.5-6s6 2 7.5 6" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>Profile</button>
+</nav>
+
+</div><!-- /app-shell -->
+
+<div class="scrim" id="scrim" onclick=""></div>
+<div class="sheet" id="sheetRequest">
+  <div class="sheet-handle"></div>
+  <div class="request-timer"><div class="request-timer-bar" id="requestTimerBar"></div></div>
+  <h3 style="margin-top:12px;">New ride request 🛵</h3>
+  <div class="request-detail">
+    <div><span class="stop-dot stop-dot-pickup"></span> <span id="reqPickup">Pickup point</span></div>
+    <div><span class="stop-dot stop-dot-drop"></span> <span id="reqDrop">Drop-off point</span></div>
+  </div>
+  <div class="request-fare-row"><span>Estimated fare</span><strong id="reqFare">Rp0</strong></div>
+  <div style="display:flex; gap:10px; margin-top:16px;">
+    <button class="btn btn-secondary btn-block" onclick="DriverApp.declineRequest()">Decline</button>
+    <button class="btn btn-primary btn-block" onclick="DriverApp.acceptRequest()">Accept</button>
+  </div>
+</div>
+
+<div class="toast" id="toast"></div>
+
+<script src="https://cdn.socket.io/4.7.5/socket.io.min.js"></script>
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+<script src="../shared/js/mock-backend.js"></script>
+<script src="../shared/js/maps-service.js"></script>
+<script src="js/app.js"></script>
+</body>
+</html>

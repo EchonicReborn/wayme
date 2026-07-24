@@ -1,0 +1,169 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
+<title>WAYME — Admin Dashboard</title>
+<meta name="theme-color" content="#075985" />
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@500;600;700&family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+<link rel="stylesheet" href="../shared/css/tokens.css" />
+<link rel="stylesheet" href="css/app.css" />
+</head>
+<body>
+
+<section class="admin-screen active" id="screen-login">
+  <div class="login-card">
+    <svg width="52" height="52" viewBox="0 0 86 86" fill="none">
+      <circle cx="43" cy="43" r="43" fill="#075985"/>
+      <path d="M20 58 L34 26 L43 46 L52 26 L66 58" stroke="white" stroke-width="6" stroke-linecap="round" stroke-linejoin="round" fill="none"/>
+      <circle cx="66" cy="58" r="4.5" fill="#FBBF24"/>
+    </svg>
+    <h2 style="margin:14px 0 2px;">WAYME Admin</h2>
+    <p class="muted">Command centre for the WAYME platform</p>
+    <label class="label-eyebrow" style="margin-top:18px; display:block;">Admin email</label>
+    <input class="input" id="adminEmail" placeholder="ops@wayme.id" style="margin-top:6px;" />
+    <label class="label-eyebrow" style="margin-top:12px; display:block;">Password</label>
+    <input class="input" id="adminPass" type="password" placeholder="••••••••" style="margin-top:6px;" />
+    <button class="btn btn-primary btn-block" style="margin-top:18px;" onclick="AdminApp.login()">Sign in</button>
+    <p class="fineprint">Demo mode — any email/password signs you in.</p>
+  </div>
+</section>
+
+<div class="admin-shell" id="adminShell" style="display:none;">
+
+  <aside class="admin-sidebar" id="adminSidebar">
+    <div class="sidebar-brand">
+      <svg width="30" height="30" viewBox="0 0 86 86" fill="none">
+        <circle cx="43" cy="43" r="43" fill="#0EA5E9"/>
+        <path d="M20 58 L34 26 L43 46 L52 26 L66 58" stroke="white" stroke-width="6" stroke-linecap="round" stroke-linejoin="round" fill="none"/>
+        <circle cx="66" cy="58" r="4.5" fill="#FBBF24"/>
+      </svg>
+      <span>WAYME <small>Admin</small></span>
+    </div>
+    <nav class="sidebar-nav">
+      <button class="side-link active" data-p="overview" onclick="AdminApp.go('overview')">📊 Overview</button>
+      <button class="side-link" data-p="live-map" onclick="AdminApp.go('live-map')">🗺️ Live map</button>
+      <button class="side-link" data-p="bookings" onclick="AdminApp.go('bookings')">🧾 Bookings</button>
+      <button class="side-link" data-p="drivers" onclick="AdminApp.go('drivers')">🛵 Drivers &amp; partners</button>
+      <button class="side-link" data-p="users" onclick="AdminApp.go('users')">👤 Users</button>
+      <button class="side-link" data-p="wallet" onclick="AdminApp.go('wallet')">💳 Wallet &amp; payouts</button>
+      <button class="side-link" data-p="settings" onclick="AdminApp.go('settings')">⚙️ Settings</button>
+    </nav>
+    <button class="btn btn-ghost btn-block" style="margin-top:auto;" onclick="AdminApp.logout()">Log out</button>
+  </aside>
+
+  <div class="admin-scrim" id="adminScrim" onclick="AdminApp.closeSidebar()"></div>
+
+  <main class="admin-main">
+    <header class="admin-topbar">
+      <button class="icon-btn hamburger" onclick="AdminApp.toggleSidebar()">☰</button>
+      <h2 id="pageTitle">Overview</h2>
+      <div class="topbar-right">
+        <span class="live-pill" id="connectionPill"><span class="pulse-dot"></span> Live</span>
+        <div class="avatar" style="width:34px;height:34px; display:flex;align-items:center;justify-content:center; background:var(--sky-900); color:white; font-weight:700;">A</div>
+      </div>
+    </header>
+
+    <div class="admin-content">
+
+      <section class="admin-panel active" id="panel-overview">
+        <div class="kpi-grid">
+          <div class="kpi-card"><span class="label-eyebrow">Total bookings</span><strong id="kpiTotalBookings">0</strong></div>
+          <div class="kpi-card"><span class="label-eyebrow">Active trips</span><strong id="kpiActiveTrips">0</strong></div>
+          <div class="kpi-card"><span class="label-eyebrow">Platform revenue</span><strong id="kpiRevenue">Rp0</strong></div>
+          <div class="kpi-card"><span class="label-eyebrow">Online drivers</span><strong id="kpiOnlineDrivers">0</strong></div>
+        </div>
+        <div class="panel-row">
+          <div class="card panel-col"><h3 style="margin-top:0;">Bookings by service</h3><div id="breakdownByType" class="bar-chart"></div></div>
+          <div class="card panel-col"><h3 style="margin-top:0;">Bookings by status</h3><div id="breakdownByStatus" class="bar-chart"></div></div>
+        </div>
+        <div class="card" style="margin-top:16px;"><h3 style="margin-top:0;">Bookings by payment method</h3><div id="breakdownByPayment" class="bar-chart"></div></div>
+        <div class="card" style="margin-top:16px;">
+          <div style="display:flex; justify-content:space-between; align-items:center;"><h3 style="margin:0;">Recent bookings</h3><button class="btn btn-ghost" onclick="AdminApp.go('bookings')">View all →</button></div>
+          <div id="recentBookingsTable" style="margin-top:10px;"></div>
+        </div>
+      </section>
+
+      <section class="admin-panel" id="panel-live-map">
+        <div class="map-split">
+          <div id="mapLive" class="map-box" style="height:100%;"></div>
+          <div class="live-trip-list"><h3 style="margin-top:0;">Active trips</h3><div id="activeTripsList"><p class="muted">No active trips right now.</p></div></div>
+        </div>
+      </section>
+
+      <section class="admin-panel" id="panel-bookings">
+        <div class="filter-tabs" id="bookingFilterTabs">
+          <button class="filter-tab active" data-f="all" onclick="AdminApp.filterBookings('all')">All</button>
+          <button class="filter-tab" data-f="ride" onclick="AdminApp.filterBookings('ride')">Rides</button>
+          <button class="filter-tab" data-f="food" onclick="AdminApp.filterBookings('food')">Food</button>
+          <button class="filter-tab" data-f="package" onclick="AdminApp.filterBookings('package')">Packages</button>
+          <button class="filter-tab" data-f="place" onclick="AdminApp.filterBookings('place')">Stays</button>
+        </div>
+        <div class="card" style="padding:0; overflow-x:auto;">
+          <table class="data-table"><thead><tr><th>ID</th><th>Type</th><th>Status</th><th>Amount</th><th>Payment</th><th>Created</th><th></th></tr></thead><tbody id="bookingsTableBody"></tbody></table>
+        </div>
+      </section>
+
+      <section class="admin-panel" id="panel-drivers">
+        <div class="card" style="padding:0; overflow-x:auto;">
+          <table class="data-table"><thead><tr><th>Driver</th><th>Vehicle</th><th>Status</th><th>Rating</th><th>Balance</th><th>Bank account</th><th></th></tr></thead><tbody id="driversTableBody"></tbody></table>
+        </div>
+        <p class="fineprint" style="text-align:left; margin-top:10px;">Rows marked "sample" are static demo data for layout purposes — only the live demo driver is wired to the real backend.</p>
+      </section>
+
+      <section class="admin-panel" id="panel-users">
+        <div class="card" style="padding:0; overflow-x:auto;">
+          <table class="data-table"><thead><tr><th>User</th><th>Phone</th><th>Wallet balance</th><th>Bank account</th><th>Trips</th><th></th></tr></thead><tbody id="usersTableBody"></tbody></table>
+        </div>
+        <p class="fineprint" style="text-align:left; margin-top:10px;">Rows marked "sample" are static demo data for layout purposes — only the live demo user is wired to the real backend.</p>
+      </section>
+
+      <section class="admin-panel" id="panel-wallet">
+        <div class="panel-row">
+          <div class="balance-card panel-col"><span class="label-eyebrow" style="color:rgba(255,255,255,0.8);">Platform revenue (settled)</span><strong id="walletPlatformRevenue" style="color:white; font-size:26px; display:block; margin-top:8px;">Rp0</strong></div>
+          <div class="balance-card panel-col" style="background:linear-gradient(135deg, var(--sky-900), var(--sky-700));"><span class="label-eyebrow" style="color:rgba(255,255,255,0.8);">Driver payout balance</span><strong id="walletDriverBalance" style="color:white; font-size:26px; display:block; margin-top:8px;">Rp0</strong><button class="btn" style="background:rgba(255,255,255,0.18); color:white; margin-top:10px;" onclick="AdminApp.processPayout()">Process payout</button></div>
+        </div>
+        <div class="kpi-card" style="margin-top:14px;"><span class="label-eyebrow">Platform commission earned</span><strong id="walletCommissionEarned">Rp0</strong></div>
+        <div class="card" style="margin-top:16px;"><h3 style="margin-top:0;">Settled transactions</h3><div id="ledgerList"><p class="muted">No settled transactions yet.</p></div></div>
+      </section>
+
+      <section class="admin-panel" id="panel-settings">
+        <div class="card">
+          <h3 style="margin-top:0;">Platform economics</h3>
+          <p class="muted">Commission is deducted from the driver's share of every settled ride fare. Discount reduces what users pay on every fare estimate, instantly.</p>
+          <div class="setting-row"><label>Commission %</label><input class="input" type="number" id="commissionInput" min="0" max="100" /></div>
+          <div class="setting-row"><label>Discount %</label><input class="input" type="number" id="discountInput" min="0" max="100" /></div>
+          <button class="btn btn-primary" onclick="AdminApp.saveEconomics()">Save</button>
+        </div>
+        <div class="card" style="margin-top:16px;">
+          <h3 style="margin-top:0;">Fare rates</h3>
+          <p class="muted">Changes apply instantly to the user app's next fare estimate.</p>
+          <div id="fareRateEditor"></div>
+          <button class="btn btn-primary" style="margin-top:12px;" onclick="AdminApp.saveFareRates()">Save fare rates</button>
+        </div>
+        <div class="card" style="margin-top:16px;">
+          <h3 style="margin-top:0;">Platform announcement</h3>
+          <p class="muted">Sends a banner notification to the user app and driver app right now.</p>
+          <textarea class="input" id="announcementText" placeholder="e.g. Scheduled maintenance tonight 11PM–1AM" style="min-height:70px; margin-top:8px;"></textarea>
+          <button class="btn btn-primary" style="margin-top:10px;" onclick="AdminApp.broadcastAnnouncement()">Broadcast to all apps</button>
+          <p class="muted" id="lastAnnouncementInfo" style="margin-top:10px;">No announcement sent yet this session.</p>
+        </div>
+      </section>
+
+    </div>
+  </main>
+</div>
+
+<div class="toast" id="toast"></div>
+<div class="modal-backdrop" id="modalBackdrop" onclick="AdminApp.closeModal()"></div>
+<div class="modal-box" id="modalBox"></div>
+
+<script src="https://cdn.socket.io/4.7.5/socket.io.min.js"></script>
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+<script src="../shared/js/mock-backend.js"></script>
+<script src="../shared/js/maps-service.js"></script>
+<script src="js/app.js"></script>
+</body>
+</html>

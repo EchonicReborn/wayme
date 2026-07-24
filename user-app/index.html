@@ -1,0 +1,348 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, viewport-fit=cover" />
+<title>WAYME — User</title>
+<meta name="theme-color" content="#0EA5E9" />
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@500;600;700&family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+<link rel="stylesheet" href="../shared/css/tokens.css" />
+<link rel="stylesheet" href="css/app.css" />
+</head>
+<body>
+<div class="app-shell" id="appShell">
+<div id="screensWrap" class="screens-wrap">
+
+  <section class="screen active" id="screen-splash">
+    <div class="splash-wrap">
+      <div class="splash-logo">
+        <svg width="86" height="86" viewBox="0 0 86 86" fill="none">
+          <circle cx="43" cy="43" r="43" fill="white" fill-opacity="0.12"/>
+          <path d="M20 58 L34 26 L43 46 L52 26 L66 58" stroke="white" stroke-width="6" stroke-linecap="round" stroke-linejoin="round" fill="none"/>
+          <circle cx="66" cy="58" r="4.5" fill="#FBBF24"/>
+        </svg>
+      </div>
+      <h1 class="display splash-title">WAYME</h1>
+      <p class="splash-tag">Your way, right on time.</p>
+    </div>
+  </section>
+
+  <section class="screen" id="screen-login">
+    <div class="scroll-body" style="justify-content:center; display:flex; flex-direction:column; flex:1;">
+      <div class="wayme-mark-sm">
+        <svg width="40" height="40" viewBox="0 0 86 86" fill="none">
+          <circle cx="43" cy="43" r="43" fill="#0EA5E9"/>
+          <path d="M20 58 L34 26 L43 46 L52 26 L66 58" stroke="white" stroke-width="6" stroke-linecap="round" stroke-linejoin="round" fill="none"/>
+          <circle cx="66" cy="58" r="4.5" fill="#FBBF24"/>
+        </svg>
+      </div>
+      <h2 style="margin-top:18px;">Get moving with WAYME</h2>
+      <p class="muted">Rides, food, deliveries and stays — one app, one wallet.</p>
+      <div id="loginStep1">
+        <label class="label-eyebrow">Phone number</label>
+        <div style="display:flex; gap:8px; margin-top:8px;">
+          <div class="input" style="width:64px; text-align:center; flex-shrink:0;">🇮🇩 +62</div>
+          <input class="input" id="phoneInput" type="tel" placeholder="812 3456 7890" inputmode="numeric" />
+        </div>
+        <button class="btn btn-primary btn-block" style="margin-top:18px;" onclick="WayApp.requestOtp()">Continue</button>
+      </div>
+      <div id="loginStep2" style="display:none;">
+        <label class="label-eyebrow">Enter the 4-digit code</label>
+        <p class="muted" style="margin-top:4px;">We sent a demo code to <span id="phoneEcho"></span></p>
+        <input class="input" id="otpInput" type="tel" placeholder="••••" maxlength="4" inputmode="numeric" style="margin-top:8px; letter-spacing:8px; font-size:20px; text-align:center;" />
+        <button class="btn btn-primary btn-block" style="margin-top:18px;" onclick="WayApp.verifyOtp()">Verify &amp; continue</button>
+        <button class="btn btn-ghost btn-block" onclick="WayApp.backToPhone()">Change number</button>
+      </div>
+      <p class="fineprint">Demo mode — any code works. No real SMS is sent.</p>
+    </div>
+  </section>
+
+  <section class="screen" id="screen-home">
+    <header class="home-header">
+      <div>
+        <p class="home-greeting" id="homeGreeting">Good day 👋</p>
+        <h2 style="margin:2px 0 0;">Where are we headed?</h2>
+      </div>
+      <button class="wallet-chip" onclick="WayApp.go('wallet')">
+        <span>💳</span> <span id="homeWalletBalance">Rp0</span>
+      </button>
+    </header>
+    <div class="scroll-body">
+      <button class="search-bar" onclick="WayApp.openRideSetup()">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none"><circle cx="11" cy="11" r="7" stroke="#0369A1" stroke-width="2"/><path d="M21 21l-4.3-4.3" stroke="#0369A1" stroke-width="2" stroke-linecap="round"/></svg>
+        <span>Search a destination…</span>
+      </button>
+      <div class="service-grid">
+        <button class="service-tile" onclick="WayApp.openRideSetup()"><span class="service-ic" style="background:#E0F2FE;">🛵</span><span>Ride</span></button>
+        <button class="service-tile" onclick="WayApp.go('food-home')"><span class="service-ic" style="background:#FFF3D6;">🍜</span><span>Food</span></button>
+        <button class="service-tile" onclick="WayApp.go('package-form')"><span class="service-ic" style="background:#E7F8EE;">📦</span><span>Send package</span></button>
+        <button class="service-tile" onclick="WayApp.go('places-list')"><span class="service-ic" style="background:#F1E9FF;">🏨</span><span>Stays</span></button>
+      </div>
+      <div class="promo-banner">
+        <div><p class="promo-eyebrow">NEW · AIR TAXI</p><p class="promo-title">Skip the traffic. Fly across town.</p></div>
+        <span style="font-size:30px;">🚁</span>
+      </div>
+      <h3 style="margin:22px 0 10px;">Recent activity</h3>
+      <div id="recentActivityList" class="recent-list"><p class="muted">No trips yet — book your first ride above.</p></div>
+    </div>
+  </section>
+
+  <section class="screen" id="screen-activity">
+    <div class="topbar"><h2>Activity</h2></div>
+    <div class="scroll-body" id="activityList"><p class="muted">Nothing here yet.</p></div>
+  </section>
+
+  <section class="screen" id="screen-wallet">
+    <div class="topbar"><h2>Wallet</h2></div>
+    <div class="scroll-body">
+      <div class="balance-card">
+        <p class="label-eyebrow" style="color:rgba(255,255,255,0.8);">WAYME balance</p>
+        <h1 class="display" id="walletBalanceBig" style="color:white; margin:6px 0 16px;">Rp0</h1>
+        <button class="btn" style="background:rgba(255,255,255,0.18); color:white;" onclick="WayApp.openTopUp()">+ Top up</button>
+      </div>
+      <h3 style="margin:20px 0 10px;">Payment methods</h3>
+      <div class="card" style="display:flex; align-items:center; gap:12px; margin-bottom:10px;"><span style="font-size:20px;">💳</span><div><strong>WAYME Wallet</strong><p class="muted" style="margin:2px 0 0;">Default</p></div></div>
+      <div class="card" style="display:flex; align-items:center; gap:12px; margin-bottom:10px;"><span style="font-size:20px;">💳</span><div><strong>•••• 4821</strong><p class="muted" style="margin:2px 0 0;">Visa debit</p></div></div>
+      <div class="card" style="display:flex; align-items:center; gap:12px;"><span style="font-size:20px;">🔳</span><div><strong>QR Pay</strong><p class="muted" style="margin:2px 0 0;">Scan to pay in-store</p></div></div>
+      <h3 style="margin:20px 0 10px;">Transactions</h3>
+      <div id="walletTxList"><p class="muted">No transactions yet.</p></div>
+    </div>
+  </section>
+
+  <section class="screen" id="screen-chat">
+    <div class="topbar"><h2>Chat</h2></div>
+    <div class="scroll-body" id="chatListBody"><p class="muted">Chat with your driver appears here once you have an active trip.</p></div>
+  </section>
+
+  <section class="screen" id="screen-profile">
+    <div class="topbar"><h2>Profile</h2></div>
+    <div class="scroll-body">
+      <div class="card" style="display:flex; align-items:center; gap:14px;">
+        <div class="avatar" style="width:56px; height:56px; display:flex; align-items:center; justify-content:center; font-size:22px; background:var(--sky-500); color:white;">R</div>
+        <div><h3 style="margin:0;">Rian Wijaya</h3><p class="muted" style="margin:2px 0 0;" id="profilePhone">+62 812 3456 7890</p></div>
+      </div>
+      <div class="card" style="margin-top:12px; display:flex; justify-content:space-between; align-items:center;">
+        <div><span class="label-eyebrow">Linked bank account</span><p style="margin:4px 0 0; font-weight:600;" id="profileBankInfo">—</p></div>
+        <span>🏦</span>
+      </div>
+      <div class="settings-list">
+        <button class="settings-row">🏠 Saved places</button>
+        <button class="settings-row">🔔 Notifications</button>
+        <button class="settings-row">🌐 Language — English</button>
+        <button class="settings-row">🛡️ Safety centre</button>
+        <button class="settings-row">❓ Help &amp; support</button>
+      </div>
+      <button class="btn btn-secondary btn-block" style="margin-top:18px;" onclick="WayApp.logout()">Log out</button>
+    </div>
+  </section>
+
+  <section class="screen" id="screen-ride-setup">
+    <div class="topbar"><button class="icon-btn" onclick="WayApp.go('home')">‹</button><h2>Plan your ride</h2></div>
+    <div id="mapRideSetup" class="map-box" style="height:42%;"></div>
+    <div class="scroll-body" style="flex:1;">
+      <p class="map-hint" id="mapHint">Type an address below, or tap the map to set your <strong>pickup</strong> point.</p>
+      <div class="stop-row" style="position:relative;"><span class="stop-dot stop-dot-pickup"></span><input class="input" id="pickupLabel" placeholder="Search pickup address…" autocomplete="off" /></div>
+      <div class="stop-row" style="position:relative;"><span class="stop-dot stop-dot-drop"></span><input class="input" id="dropLabel" placeholder="Search drop-off address…" autocomplete="off" /></div>
+      <div class="vehicle-tabs" id="vehicleTabs">
+        <button class="vehicle-tab active" data-kind="moto" onclick="WayApp.selectVehicle('moto')"><span>🛵</span><span>Motorbike</span><small id="fareMoto">—</small></button>
+        <button class="vehicle-tab" data-kind="car" onclick="WayApp.selectVehicle('car')"><span>🚗</span><span>Car</span><small id="fareCar">—</small></button>
+        <button class="vehicle-tab" data-kind="air" onclick="WayApp.selectVehicle('air')"><span>🚁</span><span>Air Taxi</span><small id="fareAir">—</small></button>
+      </div>
+      <div class="card" style="margin-top:14px; display:flex; justify-content:space-between; align-items:center;">
+        <span>Pay with</span><button class="chip" onclick="WayApp.openPaymentSheet('ride')" id="ridePayChip">💳 WAYME Wallet</button>
+      </div>
+      <button class="btn btn-primary btn-block" style="margin-top:16px;" id="confirmRideBtn" disabled onclick="WayApp.confirmRide()">Set pickup &amp; drop-off</button>
+    </div>
+  </section>
+
+  <section class="screen" id="screen-finding">
+    <div id="mapFinding" class="map-box" style="height:100%; position:absolute; inset:0;"></div>
+    <div class="finding-overlay">
+      <div class="finding-card">
+        <div class="radar"><div class="radar-dot"></div></div>
+        <h3 style="margin:14px 0 4px;">Finding your driver…</h3>
+        <p class="muted">Matching you with a nearby partner</p>
+        <button class="btn btn-ghost btn-block" style="margin-top:14px;" onclick="WayApp.cancelSearch()">Cancel</button>
+      </div>
+    </div>
+  </section>
+
+  <section class="screen" id="screen-trip">
+    <div id="mapTrip" class="map-box" style="height:100%; position:absolute; inset:0;"></div>
+    <div class="trip-topbar">
+      <button class="icon-btn" onclick="WayApp.minimizeTrip()">‹</button>
+      <span class="chip" id="tripStatusChip">Driver arriving</span>
+      <button class="icon-btn" onclick="WayApp.sosAlert()">🛟</button>
+    </div>
+    <div class="geofence-banner" id="geofenceBanner" style="display:none;">📍 You're near the destination geofence</div>
+    <div class="trip-sheet">
+      <div class="sheet-handle"></div>
+      <div class="driver-row">
+        <div class="avatar" style="width:48px;height:48px; display:flex;align-items:center;justify-content:center; background:var(--sky-500); color:white; font-weight:700;">A</div>
+        <div style="flex:1;"><strong id="tripDriverName">Andi Pratama</strong><p class="muted" style="margin:1px 0 0;" id="tripVehicleInfo">Honda Vario · B 3921 WAY · ⭐ 4.9</p></div>
+        <button class="icon-btn" onclick="WayApp.callDriver()">📞</button>
+        <button class="icon-btn" onclick="WayApp.openChat()">💬</button>
+      </div>
+      <div class="trip-route">
+        <div><span class="stop-dot stop-dot-pickup"></span> <span id="tripPickupText">Pickup</span></div>
+        <div><span class="stop-dot stop-dot-drop"></span> <span id="tripDropText">Destination</span></div>
+      </div>
+      <div class="trip-meta"><span>ETA <strong id="tripEta">—</strong></span><span>Fare <strong id="tripFare">—</strong></span></div>
+      <button class="btn btn-secondary btn-block" id="tripActionBtn" style="margin-top:12px;" onclick="WayApp.driverSimAdvance()">Simulate driver progress</button>
+    </div>
+  </section>
+
+  <section class="screen" id="screen-rate">
+    <div class="scroll-body" style="justify-content:center; display:flex; flex-direction:column; align-items:center; text-align:center;">
+      <span style="font-size:44px;">🎉</span>
+      <h2>Trip complete!</h2>
+      <p class="muted">How was your ride with <span id="rateDriverName">your driver</span>?</p>
+      <div class="stars" id="ratingStars"><span data-v="1">★</span><span data-v="2">★</span><span data-v="3">★</span><span data-v="4">★</span><span data-v="5">★</span></div>
+      <div class="card" style="width:100%; margin-top:20px; display:flex; justify-content:space-between;"><span>Total paid</span><strong id="rateFareAmount">Rp0</strong></div>
+      <button class="btn btn-primary btn-block" style="margin-top:18px;" onclick="WayApp.finishRating()">Done</button>
+    </div>
+  </section>
+
+  <section class="screen" id="screen-chat-active">
+    <div class="topbar">
+      <button class="icon-btn" onclick="WayApp.go('trip')">‹</button>
+      <div class="avatar" style="width:34px;height:34px; display:flex;align-items:center;justify-content:center; background:var(--sky-500); color:white; font-weight:700;">A</div>
+      <h2 id="chatActiveDriverName">Andi Pratama</h2>
+    </div>
+    <div class="scroll-body" id="chatMessages" style="flex:1;"></div>
+    <div class="chat-input-row"><input class="input" id="chatInput" placeholder="Message your driver…" /><button class="btn btn-primary" style="padding:12px 16px;" onclick="WayApp.sendChat()">➤</button></div>
+  </section>
+
+  <section class="screen" id="screen-food-home">
+    <div class="topbar"><button class="icon-btn" onclick="WayApp.go('home')">‹</button><h2>Food delivery</h2></div>
+    <div class="scroll-body" id="restaurantList"></div>
+  </section>
+
+  <section class="screen" id="screen-food-menu">
+    <div class="topbar"><button class="icon-btn" onclick="WayApp.go('food-home')">‹</button><h2 id="menuRestaurantName">Menu</h2></div>
+    <div class="scroll-body" id="menuList"></div>
+    <div class="cart-bar" id="cartBar" style="display:none;"><span id="cartSummary">0 items</span><button class="btn btn-primary" onclick="WayApp.goToFoodCheckout()">View cart</button></div>
+  </section>
+
+  <section class="screen" id="screen-food-checkout">
+    <div class="topbar"><button class="icon-btn" onclick="WayApp.go('food-menu')">‹</button><h2>Checkout</h2></div>
+    <div class="scroll-body">
+      <div id="cartItemsList"></div>
+      <div class="card" style="margin-top:14px; display:flex; justify-content:space-between;"><span>Delivery fee</span><strong>Rp9,000</strong></div>
+      <div class="card" style="margin-top:10px; display:flex; justify-content:space-between;"><span>Total</span><strong id="foodTotal">Rp0</strong></div>
+      <div class="card" style="margin-top:10px; display:flex; justify-content:space-between; align-items:center;"><span>Pay with</span><button class="chip" onclick="WayApp.openPaymentSheet('food')" id="foodPayChip">💳 WAYME Wallet</button></div>
+      <button class="btn btn-primary btn-block" style="margin-top:16px;" onclick="WayApp.placeFoodOrder()">Place order</button>
+    </div>
+  </section>
+
+  <section class="screen" id="screen-food-tracking">
+    <div class="topbar"><button class="icon-btn" onclick="WayApp.go('home')">‹</button><h2>Order on the way</h2></div>
+    <div id="mapFood" class="map-box" style="height:46%;"></div>
+    <div class="scroll-body">
+      <div class="order-progress" id="foodProgress">
+        <div class="op-step active"><span>1</span>Confirmed</div>
+        <div class="op-step"><span>2</span>Preparing</div>
+        <div class="op-step"><span>3</span>On the way</div>
+        <div class="op-step"><span>4</span>Delivered</div>
+      </div>
+      <button class="btn btn-secondary btn-block" style="margin-top:16px;" onclick="WayApp.advanceFoodOrder()">Simulate next step</button>
+    </div>
+  </section>
+
+  <section class="screen" id="screen-package-form">
+    <div class="topbar"><button class="icon-btn" onclick="WayApp.go('home')">‹</button><h2>Send a package</h2></div>
+    <div id="mapPackage" class="map-box" style="height:34%;"></div>
+    <div class="scroll-body">
+      <p class="map-hint" id="pkgMapHint">Type an address below, or tap the map — pickup first, then drop-off.</p>
+      <div class="stop-row" style="position:relative;"><span class="stop-dot stop-dot-pickup"></span><input class="input" id="pkgPickupLabel" placeholder="Search pickup address…" autocomplete="off" /></div>
+      <div class="stop-row" style="position:relative;"><span class="stop-dot stop-dot-drop"></span><input class="input" id="pkgDropLabel" placeholder="Search drop-off address…" autocomplete="off" /></div>
+      <label class="label-eyebrow" style="margin-top:10px; display:block;">What are you sending?</label>
+      <select class="input" id="pkgType" style="margin-top:6px;">
+        <option value="document">Document / envelope</option>
+        <option value="small">Small parcel (&lt;2kg)</option>
+        <option value="medium">Medium box (2–10kg)</option>
+        <option value="fragile">Fragile item</option>
+      </select>
+      <textarea class="input" id="pkgNotes" placeholder="Notes for the courier (optional)" style="margin-top:10px; min-height:70px;"></textarea>
+      <div class="card" style="margin-top:12px; display:flex; justify-content:space-between;"><span>Estimated fee</span><strong id="pkgFare">—</strong></div>
+      <div class="card" style="margin-top:10px; display:flex; justify-content:space-between; align-items:center;"><span>Pay with</span><button class="chip" onclick="WayApp.openPaymentSheet('package')" id="pkgPayChip">💳 WAYME Wallet</button></div>
+      <button class="btn btn-primary btn-block" style="margin-top:16px;" id="pkgConfirmBtn" disabled onclick="WayApp.confirmPackage()">Book courier</button>
+    </div>
+  </section>
+
+  <section class="screen" id="screen-places-list">
+    <div class="topbar"><button class="icon-btn" onclick="WayApp.go('home')">‹</button><h2>Stays &amp; places</h2></div>
+    <div class="scroll-body" id="placesList"></div>
+  </section>
+
+  <section class="screen" id="screen-place-detail">
+    <div class="topbar"><button class="icon-btn" onclick="WayApp.go('places-list')">‹</button><h2 id="placeDetailName">Place</h2></div>
+    <div class="scroll-body">
+      <div class="place-hero" id="placeHero"></div>
+      <p class="muted" id="placeAddress" style="margin-top:10px;"></p>
+      <div style="display:flex; gap:16px; margin-top:10px;">
+        <div><label class="label-eyebrow">Check-in</label><input class="input" type="date" id="placeCheckin" /></div>
+        <div><label class="label-eyebrow">Check-out</label><input class="input" type="date" id="placeCheckout" /></div>
+      </div>
+      <label class="label-eyebrow" style="margin-top:10px; display:block;">Guests</label>
+      <input class="input" type="number" id="placeGuests" value="2" min="1" />
+      <div class="card" style="margin-top:14px; display:flex; justify-content:space-between;"><span>Total</span><strong id="placeTotal">—</strong></div>
+      <div class="card" style="margin-top:10px; display:flex; justify-content:space-between; align-items:center;"><span>Pay with</span><button class="chip" onclick="WayApp.openPaymentSheet('place')" id="placePayChip">💳 WAYME Wallet</button></div>
+      <button class="btn btn-primary btn-block" style="margin-top:16px;" onclick="WayApp.confirmPlace()">Reserve</button>
+    </div>
+  </section>
+
+  <section class="screen" id="screen-booking-confirmed">
+    <div class="scroll-body" style="justify-content:center; display:flex; flex-direction:column; align-items:center; text-align:center;">
+      <span style="font-size:48px;">✅</span>
+      <h2 id="confirmTitle">Booking confirmed</h2>
+      <p class="muted" id="confirmSubtitle">You'll get updates here and in Activity.</p>
+      <button class="btn btn-primary btn-block" style="margin-top:20px;" onclick="WayApp.go('home')">Back to home</button>
+    </div>
+  </section>
+
+</div><!-- /screensWrap -->
+
+<nav class="tabbar" id="mainTabbar">
+  <button class="tab-item active" data-tab="home" onclick="WayApp.switchTab('home')"><svg viewBox="0 0 24 24" fill="none"><path d="M4 11.5 12 4l8 7.5M6 10v9h12v-9" stroke="currentColor" stroke-width="2" stroke-linejoin="round" fill="none"/></svg>Home</button>
+  <button class="tab-item" data-tab="activity" onclick="WayApp.switchTab('activity')"><svg viewBox="0 0 24 24" fill="none"><path d="M4 6h16M4 12h16M4 18h10" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>Activity</button>
+  <button class="tab-item" data-tab="wallet" onclick="WayApp.switchTab('wallet')"><svg viewBox="0 0 24 24" fill="none"><rect x="3" y="6" width="18" height="13" rx="2" stroke="currentColor" stroke-width="2"/><path d="M3 10h18" stroke="currentColor" stroke-width="2"/></svg>Wallet</button>
+  <button class="tab-item" data-tab="chat" onclick="WayApp.switchTab('chat')"><svg viewBox="0 0 24 24" fill="none"><path d="M4 5h16v11H8l-4 4V5Z" stroke="currentColor" stroke-width="2" stroke-linejoin="round"/></svg>Chat</button>
+  <button class="tab-item" data-tab="profile" onclick="WayApp.switchTab('profile')"><svg viewBox="0 0 24 24" fill="none"><circle cx="12" cy="8" r="3.5" stroke="currentColor" stroke-width="2"/><path d="M4.5 20c1.5-4 4.5-6 7.5-6s6 2 7.5 6" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>Profile</button>
+</nav>
+
+</div><!-- /app-shell -->
+
+<div class="scrim" id="scrim" onclick="WayApp.closeSheets()"></div>
+<div class="sheet" id="sheetPayment">
+  <div class="sheet-handle"></div>
+  <h3>Choose payment method</h3>
+  <button class="pay-option" data-m="wallet" onclick="WayApp.selectPayMethod('wallet')"><span>💳</span><div><strong>WAYME Wallet</strong><p class="muted" style="margin:2px 0 0;" id="payWalletBalance">Balance —</p></div></button>
+  <button class="pay-option" data-m="card" onclick="WayApp.selectPayMethod('card')"><span>💳</span><div><strong>Visa •••• 4821</strong><p class="muted" style="margin:2px 0 0;">Card payment</p></div></button>
+  <button class="pay-option" data-m="qr" onclick="WayApp.selectPayMethod('qr')"><span>🔳</span><div><strong>QR Pay</strong><p class="muted" style="margin:2px 0 0;">Scan with any e-wallet</p></div></button>
+  <div id="qrPreview" style="display:none; text-align:center; margin-top:10px;"><div class="qr-box">▦ ▦ ▦<br>▦ QR ▦<br>▦ ▦ ▦</div><p class="muted">Demo QR — scanning not required</p></div>
+  <button class="btn btn-primary btn-block" style="margin-top:14px;" onclick="WayApp.confirmPayMethod()">Use this method</button>
+</div>
+
+<div class="sheet" id="sheetTopUp">
+  <div class="sheet-handle"></div>
+  <h3>Top up wallet</h3>
+  <div class="topup-grid">
+    <button onclick="WayApp.doTopUp(50000)">Rp50,000</button>
+    <button onclick="WayApp.doTopUp(100000)">Rp100,000</button>
+    <button onclick="WayApp.doTopUp(250000)">Rp250,000</button>
+    <button onclick="WayApp.doTopUp(500000)">Rp500,000</button>
+  </div>
+</div>
+
+<div class="toast" id="toast"></div>
+
+<script src="https://cdn.socket.io/4.7.5/socket.io.min.js"></script>
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+<script src="../shared/js/mock-backend.js"></script>
+<script src="../shared/js/maps-service.js"></script>
+<script src="js/app.js"></script>
+</body>
+</html>
