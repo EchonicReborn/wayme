@@ -151,3 +151,4 @@ tier (~$7/mo) or similar elsewhere, a five-minute change once you're ready.
   limits — self-host both, or use a paid provider, before real-scale traffic.
 - Add real SMS OTP, a licensed payment gateway, and per-user role-based auth
   (not just the shared access key) for the admin dashboard before going live.
+ 

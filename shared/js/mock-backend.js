@@ -28,7 +28,7 @@
    ========================================================= */
 
 const WAYME = (function () {
-  const SERVER_URL = "http://localhost:3000"; // <-- point this at your running server
+  const SERVER_URL = "https://suffering-relearn-unpinned.ngrok-free.dev"; // <-- point this at your running server
   const ACCESS_KEY = "wayme-demo-2026"; // <-- must match ACCESS_KEY (or WAYME_ACCESS_KEY env var) in server/server.js
 
   const HOME_LAT = -6.9932, HOME_LNG = 110.4203;
