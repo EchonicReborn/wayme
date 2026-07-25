@@ -59,3 +59,7 @@
 .request-fare-row{display:flex; justify-content:space-between; margin-top:12px; font-size:15px; font-weight:700; color:var(--sky-900);}
 
 .leaflet-top, .leaflet-bottom{z-index:12 !important;}
+
+.channel-tabs{display:flex; gap:8px; margin-bottom:14px;}
+.channel-tab{flex:1; border:1.5px solid var(--sky-100); background:white; color:var(--ink-700); font-size:13px; font-weight:600; padding:10px; border-radius:var(--r-pill); cursor:pointer;}
+.channel-tab.active{background:var(--sky-900); border-color:var(--sky-900); color:white;}

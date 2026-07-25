@@ -3,18 +3,7 @@ const AdminApp = (function () {
   const PANELS = ["overview", "live-map", "bookings", "drivers", "users", "wallet", "settings"];
   const PANEL_TITLES = { overview: "Overview", "live-map": "Live map", bookings: "Bookings", drivers: "Drivers & partners", users: "Users", wallet: "Wallet & payouts", settings: "Settings" };
 
-  const state = { bookingFilter: "all", liveMap: null };
-
-  const sampleDrivers = [
-    { name: "Sari Kusuma", vehicle: "Yamaha NMAX · B 2210 QRS", rating: 4.8, balance: 940000 },
-    { name: "Budi Santoso", vehicle: "Toyota Avanza · B 1187 CAR", rating: 4.6, balance: 2210000 },
-    { name: "Dewi Lestari", vehicle: "Honda Beat · B 5502 WAY", rating: 4.9, balance: 610000 },
-  ];
-  const sampleUsers = [
-    { name: "Putri Amelia", phone: "+62 813 2211 9090", balance: 180000, trips: 12 },
-    { name: "Fajar Ramadhan", phone: "+62 856 7712 4400", balance: 95000, trips: 4 },
-    { name: "Nadia Ayu", phone: "+62 878 4432 1120", balance: 320000, trips: 21 },
-  ];
+  const state = { bookingFilter: "all", liveMap: null, liveMapMarkers: [], managingUserId: null, managingDriverId: null };
 
   function $(id) { return document.getElementById(id); }
   function toast(msg) {
@@ -24,10 +13,63 @@ const AdminApp = (function () {
   function labelForType(t) { return { ride: "🛵 Ride", food: "🍜 Food", package: "📦 Package", place: "🏨 Stay" }[t] || t; }
   function escapeHtml(s) { return s.replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c])); }
 
-  function login() { $("screen-login").classList.remove("active"); $("adminShell").style.display = "flex"; go("overview"); }
-  function logout() { $("adminShell").style.display = "none"; $("screen-login").classList.add("active"); $("adminEmail").value = ""; $("adminPass").value = ""; }
+  const ADMIN_SESSION_TTL_MS = 14 * 24 * 60 * 60 * 1000; // 2 weeks
+  async function sha256Hex(text) {
+    const enc = new TextEncoder().encode(text);
+    const buf = await crypto.subtle.digest("SHA-256", enc);
+    return Array.from(new Uint8Array(buf)).map((b) => b.toString(16).padStart(2, "0")).join("");
+  }
+  function hasAdminSession() { try { return localStorage.getItem("wayme_admin_session") === "1"; } catch (e) { return false; } }
+  function touchAdminSession() { try { localStorage.setItem("wayme_admin_last_active", String(Date.now())); } catch (e) {} }
+  function isAdminSessionExpired() {
+    let last = 0; try { last = Number(localStorage.getItem("wayme_admin_last_active") || 0); } catch (e) {}
+    return last > 0 && Date.now() - last > ADMIN_SESSION_TTL_MS;
+  }
+  function hasAdminPin() { try { return !!localStorage.getItem("wayme_admin_pin"); } catch (e) { return false; } }
+  async function setAdminPinValue(pin) { const hash = await sha256Hex(pin); try { localStorage.setItem("wayme_admin_pin", hash); } catch (e) {} }
+  async function verifyAdminPin(pin) {
+    const hash = await sha256Hex(pin);
+    let stored = null; try { stored = localStorage.getItem("wayme_admin_pin"); } catch (e) {}
+    return !!stored && stored === hash;
+  }
+  function showAuthScreen(id) {
+    document.querySelectorAll(".admin-screen").forEach((s) => s.classList.remove("active"));
+    $("screen-" + id).classList.add("active");
+  }
+
+  function login() {
+    $("screen-login").classList.remove("active");
+    try { localStorage.setItem("wayme_admin_session", "1"); } catch (e) {}
+    touchAdminSession();
+    if (!hasAdminPin()) { showAuthScreen("pin-setup"); return; }
+    $("adminShell").style.display = "flex"; go("overview");
+  }
+  function logout() {
+    try { localStorage.removeItem("wayme_admin_session"); } catch (e) {}
+    $("adminShell").style.display = "none";
+    showAuthScreen("login");
+    $("adminEmail").value = ""; $("adminPass").value = "";
+  }
+  async function savePinSetup() {
+    const pin = $("pinSetupInput").value.trim(); const confirmPin = $("pinSetupConfirm").value.trim();
+    if (!/^\d{4}$/.test(pin)) { toast("Enter a 4-digit PIN"); return; }
+    if (pin !== confirmPin) { toast("PINs don't match — try again"); return; }
+    await setAdminPinValue(pin);
+    $("pinSetupInput").value = ""; $("pinSetupConfirm").value = "";
+    toast("PIN set — the admin dashboard is protected on this device");
+    $("adminShell").style.display = "flex"; go("overview");
+  }
+  async function unlockWithPin() {
+    const pin = $("pinLockInput").value.trim();
+    const ok = await verifyAdminPin(pin);
+    if (!ok) { toast("Incorrect PIN — try again"); $("pinLockInput").value = ""; return; }
+    touchAdminSession();
+    $("pinLockInput").value = "";
+    $("adminShell").style.display = "flex"; go("overview");
+  }
 
   function go(panel) {
+    touchAdminSession();
     document.querySelectorAll(".admin-panel").forEach((p) => p.classList.remove("active"));
     $("panel-" + panel).classList.add("active");
     document.querySelectorAll(".side-link").forEach((b) => b.classList.toggle("active", b.dataset.p === panel));
@@ -51,14 +93,14 @@ const AdminApp = (function () {
   function closeModal() { $("modalBox").classList.remove("open"); $("modalBackdrop").classList.remove("open"); }
 
   function renderOverview() {
-    const bookings = WAYME.listBookings(); const driver = WAYME.getDriver();
+    const bookings = WAYME.listBookings();
     const activeStatuses = ["searching", "matched", "arrived", "ongoing", "confirmed"];
     const active = bookings.filter((b) => activeStatuses.includes(b.status));
     const revenue = bookings.filter((b) => b.settled).reduce((sum, b) => sum + (b.fare || b.total || 0), 0);
     $("kpiTotalBookings").textContent = String(bookings.length);
     $("kpiActiveTrips").textContent = String(active.length);
     $("kpiRevenue").textContent = WAYME.fmtIDR(revenue);
-    $("kpiOnlineDrivers").textContent = driver.online && !driver.suspended ? "1" : "0";
+    $("kpiOnlineDrivers").textContent = String(WAYME.listDrivers().filter((d) => d.online && !d.suspended).length);
     const byType = {}; bookings.forEach((b) => { byType[b.type] = (byType[b.type] || 0) + 1; });
     $("breakdownByType").innerHTML = renderBarChart(byType, labelForType);
     const byStatus = {}; bookings.forEach((b) => { byStatus[b.status] = (byStatus[b.status] || 0) + 1; });
@@ -79,30 +121,46 @@ const AdminApp = (function () {
   }
 
   function renderLiveMap() {
-    const driver = WAYME.getDriver();
+    const drivers = WAYME.listDrivers();
     WayMaps.ready(() => {
-      if (!state.liveMap) state.liveMap = WayMaps.createMap("mapLive", { lat: driver.lat, lng: driver.lng }, 13);
-      const driverMarker = WayMaps.emojiMarker(state.liveMap, { lat: driver.lat, lng: driver.lng }, driver.online ? "🛵" : "⚪");
+      if (!state.liveMap) {
+        const center = drivers[0] || { lat: WAYME.HOME_LAT, lng: WAYME.HOME_LNG };
+        state.liveMap = WayMaps.createMap("mapLive", { lat: center.lat, lng: center.lng }, 13);
+      }
+      state.liveMapMarkers.forEach((m) => m.setMap(null));
+      state.liveMapMarkers = [];
+
+      drivers.forEach((d) => {
+        const m = WayMaps.emojiMarker(state.liveMap, { lat: d.lat, lng: d.lng }, d.suspended ? "🚫" : d.online ? "🛵" : "⚪");
+        state.liveMapMarkers.push(m);
+      });
+
       const activeStatuses = ["searching", "matched", "arrived", "ongoing"];
       const active = WAYME.listBookings().filter((b) => b.type === "ride" && activeStatuses.includes(b.status));
       active.forEach((b) => {
-        if (b.pickup) WayMaps.dotMarker(state.liveMap, b.pickup, "#0EA5E9");
-        if (b.drop) WayMaps.dotMarker(state.liveMap, b.drop, "#FBBF24");
-        if (b.pickup && b.drop) WayMaps.polyline(state.liveMap, [b.pickup, b.drop], { strokeColor: "#0369A1", strokeWeight: 3 });
+        if (b.pickup) state.liveMapMarkers.push(WayMaps.dotMarker(state.liveMap, b.pickup, "#0EA5E9"));
+        if (b.drop) state.liveMapMarkers.push(WayMaps.dotMarker(state.liveMap, b.drop, "#FBBF24"));
+        if (b.pickup && b.drop) state.liveMapMarkers.push(WayMaps.polyline(state.liveMap, [b.pickup, b.drop], { strokeColor: "#0369A1", strokeWeight: 3 }));
       });
-      renderActiveTripsList(active, driver);
+
+      const referenceDriver = drivers.find((d) => d.online) || drivers[0] || null;
+      renderActiveTripsList(active, referenceDriver);
     });
   }
   async function renderActiveTripsList(active, driver) {
     const listEl = $("activeTripsList");
     if (!active.length) { listEl.innerHTML = '<p class="muted">No active trips right now.</p>'; return; }
+    if (!driver) {
+      listEl.innerHTML = active.map((b) => `<div class="trip-mini-card" onclick="AdminApp.flyToBooking('${b.id}')"><strong>${b.id}</strong> <span class="chip">${b.status}</span><p class="muted" style="margin:6px 0 0;">${b.vehicle || "ride"} · ${WAYME.fmtIDR(b.fare || 0)}</p></div>`).join("");
+      return;
+    }
     const candidates = active.filter((b) => b.pickup).map((b) => ({ id: b.id, point: b.pickup, booking: b }));
     const ranked = candidates.length ? await WayMaps.rankByDrivingDistance({ lat: driver.lat, lng: driver.lng }, candidates) : [];
     const rankedIds = ranked.map((r) => r.id);
     const ordered = active.slice().sort((a, b) => rankedIds.indexOf(a.id) - rankedIds.indexOf(b.id));
     listEl.innerHTML = ordered.map((b) => {
       const r = ranked.find((x) => x.id === b.id);
-      const distLabel = r && r.distanceMeters !== Infinity ? (r.distanceMeters / 1000).toFixed(1) + " km from driver" : "";
+      const distLabel = r && r.distanceMeters !== Infinity ? (r.distanceMeters / 1000).toFixed(1) + " km from nearest driver" : "";
       return `<div class="trip-mini-card" onclick="AdminApp.flyToBooking('${b.id}')"><strong>${b.id}</strong> <span class="chip">${b.status}</span><p class="muted" style="margin:6px 0 0;">${b.vehicle || "ride"} · ${WAYME.fmtIDR(b.fare || 0)}${distLabel ? " · " + distLabel : ""}</p></div>`;
     }).join("");
   }
@@ -153,76 +211,90 @@ const AdminApp = (function () {
     const amount = b.fare || b.total || 0;
     const driverEarning = b.driverEarning != null ? b.driverEarning : amount;
     if ((b.payMethod || "wallet") === "wallet") {
-      WAYME.pay("driver", driverEarning);
+      if (b.driverId) WAYME.pay(b.driverId, driverEarning);
       WAYME.reverseCommission(b.commission || 0);
-      WAYME.topUp("user", amount);
+      if (b.userId) WAYME.topUp(b.userId, amount);
     }
     WAYME.updateBooking(id, { refunded: true });
     closeModal(); toast("Refunded " + WAYME.fmtIDR(amount) + " for " + id); renderBookings();
   }
 
   function renderDrivers() {
-    const d = WAYME.getDriver();
-    let rows = `
+    const drivers = WAYME.listDrivers();
+    if (!drivers.length) { $("driversTableBody").innerHTML = '<tr><td colspan="6" class="muted-cell">No drivers have registered yet — try signing up in the driver app.</td></tr>'; return; }
+    $("driversTableBody").innerHTML = drivers.map((d) => `
       <tr>
         <td>${d.name}</td><td>${d.vehicle}</td>
         <td>${d.suspended ? '<span class="badge-danger">Suspended</span>' : d.online ? '<span class="badge-success">Online</span>' : "Offline"}</td>
-        <td>⭐ ${d.rating}</td><td>${WAYME.fmtIDR(WAYME.getWallet("driver"))}</td><td>${d.bankName} · ${d.bankAccount}</td>
-        <td>${d.suspended ? `<button class="table-action" onclick="AdminApp.reinstateDriver()">Reinstate</button>` : `<button class="table-action danger" onclick="AdminApp.suspendDriver()">Suspend</button>`}<button class="table-action" onclick="AdminApp.manageDriverBank()">Bank details</button></td>
-      </tr>`;
-    rows += sampleDrivers.map((s) => `<tr class="row-sample"><td>${s.name} <span class="muted">(sample)</span></td><td>${s.vehicle}</td><td>Offline</td><td>⭐ ${s.rating}</td><td>${WAYME.fmtIDR(s.balance)}</td><td>—</td><td><button class="table-action" disabled>Suspend</button></td></tr>`).join("");
-    $("driversTableBody").innerHTML = rows;
+        <td>⭐ ${d.rating}</td><td>${WAYME.fmtIDR(WAYME.getWallet(d.id))}</td><td>${d.bankName} · ${d.bankAccount}</td>
+        <td>
+          ${d.suspended ? `<button class="table-action" onclick="AdminApp.reinstateDriver('${d.id}')">Reinstate</button>` : `<button class="table-action danger" onclick="AdminApp.suspendDriver('${d.id}')">Suspend</button>`}
+          <button class="table-action" onclick="AdminApp.manageDriverBank('${d.id}')">Bank details</button>
+        </td>
+      </tr>`).join("");
   }
-  function suspendDriver() { WAYME.setDriverSuspended(true); toast("Driver suspended — they can no longer go online"); renderDrivers(); }
-  function reinstateDriver() { WAYME.setDriverSuspended(false); toast("Driver reinstated"); renderDrivers(); }
-  function manageDriverBank() {
-    const d = WAYME.getDriver();
+  function suspendDriver(id) { WAYME.setDriverSuspended(id, true); toast("Driver suspended — they can no longer go online"); renderDrivers(); }
+  function reinstateDriver(id) { WAYME.setDriverSuspended(id, false); toast("Driver reinstated"); renderDrivers(); }
+  function manageDriverBank(id) {
+    const d = WAYME.getDriverById(id); if (!d) return;
+    state.managingDriverId = id;
     openModal(`<h3>Driver payout bank account</h3><p class="muted">Visible to the driver in their Profile tab.</p><div class="bank-edit-row"><input class="input" id="mBankName" placeholder="Bank name" value="${escapeHtml(d.bankName)}" /><input class="input" id="mBankAccount" placeholder="Account number" value="${escapeHtml(d.bankAccount)}" /></div><button class="btn btn-primary btn-block" style="margin-top:14px;" onclick="AdminApp.saveDriverBank()">Save</button>`);
   }
-  function saveDriverBank() { WAYME.setDriverBankAccount($("mBankName").value.trim(), $("mBankAccount").value.trim()); closeModal(); toast("Driver bank account updated"); renderDrivers(); }
+  function saveDriverBank() { WAYME.setDriverBankAccount(state.managingDriverId, $("mBankName").value.trim(), $("mBankAccount").value.trim()); closeModal(); toast("Driver bank account updated"); renderDrivers(); }
 
   function renderUsers() {
-    const tripsCount = WAYME.listBookings().length; const u = WAYME.getUserProfile();
-    let rows = `
+    const users = WAYME.listUsers();
+    if (!users.length) { $("usersTableBody").innerHTML = '<tr><td colspan="6" class="muted-cell">No users have registered yet — try signing up in the user app.</td></tr>'; return; }
+    const allBookings = WAYME.listBookings();
+    $("usersTableBody").innerHTML = users.map((u) => {
+      const tripsCount = allBookings.filter((b) => b.userId === u.id).length;
+      return `
       <tr>
-        <td>${u.name} <span class="muted">(live demo user)</span></td><td>${u.phone}</td><td>${WAYME.fmtIDR(WAYME.getWallet("user"))}</td><td>${u.bankName} · ${u.bankAccount}</td><td>${tripsCount}</td>
+        <td>${u.name}</td><td>${u.phone}</td><td>${WAYME.fmtIDR(WAYME.getWallet(u.id))}</td><td>${u.bankName} · ${u.bankAccount}</td><td>${tripsCount}</td>
         <td>
-          <button class="table-action" onclick="AdminApp.adjustUser(50000)">+ Rp50,000</button>
-          <button class="table-action danger" onclick="AdminApp.adjustUser(-50000)">− Rp50,000</button><br/>
-          ${u.suspended ? `<button class="table-action" onclick="AdminApp.reinstateUser()">Reinstate</button>` : `<button class="table-action danger" onclick="AdminApp.suspendUser()">Suspend</button>`}
-          <button class="table-action" onclick="AdminApp.manageUserBank()">Bank details</button>
+          <button class="table-action" onclick="AdminApp.adjustUser('${u.id}', 50000)">+ Rp50,000</button>
+          <button class="table-action danger" onclick="AdminApp.adjustUser('${u.id}', -50000)">− Rp50,000</button><br/>
+          ${u.suspended ? `<button class="table-action" onclick="AdminApp.reinstateUser('${u.id}')">Reinstate</button>` : `<button class="table-action danger" onclick="AdminApp.suspendUser('${u.id}')">Suspend</button>`}
+          <button class="table-action" onclick="AdminApp.manageUserBank('${u.id}')">Bank details</button>
         </td>
       </tr>`;
-    rows += sampleUsers.map((r) => `<tr class="row-sample"><td>${r.name} <span class="muted">(sample)</span></td><td>${r.phone}</td><td>${WAYME.fmtIDR(r.balance)}</td><td>—</td><td>${r.trips}</td><td><button class="table-action" disabled>Adjust</button></td></tr>`).join("");
-    $("usersTableBody").innerHTML = rows;
+    }).join("");
   }
-  function adjustUser(amount) {
-    if (amount >= 0) WAYME.topUp("user", amount);
-    else { const r = WAYME.pay("user", -amount); if (!r.ok) { toast("User balance too low to deduct that much"); return; } }
-    toast((amount >= 0 ? "Added " : "Deducted ") + WAYME.fmtIDR(Math.abs(amount)) + " for the user wallet"); renderUsers();
+  function adjustUser(id, amount) {
+    if (amount >= 0) WAYME.topUp(id, amount);
+    else { const r = WAYME.pay(id, -amount); if (!r.ok) { toast("That user's balance is too low to deduct that much"); return; } }
+    toast((amount >= 0 ? "Added " : "Deducted ") + WAYME.fmtIDR(Math.abs(amount)) + " for that user's wallet"); renderUsers();
   }
-  function suspendUser() { WAYME.setUserSuspended(true); toast("User suspended — they can no longer book anything"); renderUsers(); }
-  function reinstateUser() { WAYME.setUserSuspended(false); toast("User reinstated"); renderUsers(); }
-  function manageUserBank() {
-    const u = WAYME.getUserProfile();
+  function suspendUser(id) { WAYME.setUserSuspended(id, true); toast("User suspended — they can no longer book anything"); renderUsers(); }
+  function reinstateUser(id) { WAYME.setUserSuspended(id, false); toast("User reinstated"); renderUsers(); }
+  function manageUserBank(id) {
+    const u = WAYME.getUserById(id); if (!u) return;
+    state.managingUserId = id;
     openModal(`<h3>User bank account</h3><p class="muted">Visible to the user in their Profile tab.</p><div class="bank-edit-row"><input class="input" id="mBankName" placeholder="Bank name" value="${escapeHtml(u.bankName)}" /><input class="input" id="mBankAccount" placeholder="Account number" value="${escapeHtml(u.bankAccount)}" /></div><button class="btn btn-primary btn-block" style="margin-top:14px;" onclick="AdminApp.saveUserBank()">Save</button>`);
   }
-  function saveUserBank() { WAYME.setUserBankAccount($("mBankName").value.trim(), $("mBankAccount").value.trim()); closeModal(); toast("User bank account updated"); renderUsers(); }
+  function saveUserBank() { WAYME.setUserBankAccount(state.managingUserId, $("mBankName").value.trim(), $("mBankAccount").value.trim()); closeModal(); toast("User bank account updated"); renderUsers(); }
 
   function renderWallet() {
     const bookings = WAYME.listBookings().filter((b) => b.settled);
     const revenue = bookings.reduce((sum, b) => sum + (b.fare || b.total || 0), 0);
     $("walletPlatformRevenue").textContent = WAYME.fmtIDR(revenue);
-    $("walletDriverBalance").textContent = WAYME.fmtIDR(WAYME.getWallet("driver"));
+    const totalDriverBalance = WAYME.listDrivers().reduce((sum, d) => sum + WAYME.getWallet(d.id), 0);
+    $("walletDriverBalance").textContent = WAYME.fmtIDR(totalDriverBalance);
     $("walletCommissionEarned").textContent = WAYME.fmtIDR(WAYME.getPlatformCommissionEarned());
     const el = $("ledgerList");
     if (!bookings.length) { el.innerHTML = '<p class="muted">No settled transactions yet.</p>'; return; }
     el.innerHTML = bookings.map((b) => `<div class="card" style="display:flex; justify-content:space-between; margin-bottom:10px;"><div><strong>${b.id}</strong><p class="muted" style="margin:2px 0 0;">${labelForType(b.type)} · ${new Date(b.createdAt).toLocaleString()}${b.commission ? " · commission " + WAYME.fmtIDR(b.commission) : ""}</p></div><strong>${WAYME.fmtIDR(b.fare || b.total || 0)}${b.refunded ? " (refunded)" : ""}</strong></div>`).join("");
   }
   function processPayout() {
-    const bal = WAYME.getWallet("driver");
-    if (bal <= 0) { toast("Nothing to pay out — driver balance is Rp0"); return; }
-    WAYME.pay("driver", bal); toast("Payout of " + WAYME.fmtIDR(bal) + " sent to the driver's bank (demo)"); renderWallet();
+    const drivers = WAYME.listDrivers();
+    let total = 0;
+    drivers.forEach((d) => {
+      const bal = WAYME.getWallet(d.id);
+      if (bal > 0) { WAYME.pay(d.id, bal); total += bal; }
+    });
+    if (total <= 0) { toast("Nothing to pay out — all driver balances are Rp0"); return; }
+    toast("Payout of " + WAYME.fmtIDR(total) + " sent across " + drivers.length + " driver(s) (demo)");
+    renderWallet();
   }
 
   const rateLabels = { moto: "Motorbike", car: "Car", air: "Air Taxi", food: "Food delivery", package: "Package" };
@@ -272,10 +344,27 @@ const AdminApp = (function () {
     pill.classList.toggle("offline", !online);
     pill.innerHTML = '<span class="pulse-dot"></span> ' + (online ? "Live" : "Offline — check server");
   }
-  document.addEventListener("DOMContentLoaded", wireRealtime);
+  function initSession() {
+    if (!hasAdminSession()) { showAuthScreen("login"); return; }
+    if (isAdminSessionExpired()) {
+      try { localStorage.removeItem("wayme_admin_session"); } catch (e) {}
+      toast("You were logged out after 2 weeks of inactivity — please log in again.");
+      showAuthScreen("login");
+      return;
+    }
+    if (hasAdminPin()) { showAuthScreen("pin-lock"); return; }
+    showAuthScreen("pin-setup");
+  }
+  document.addEventListener("DOMContentLoaded", () => {
+    wireRealtime();
+    initSession();
+    const pinInput = $("pinLockInput");
+    if (pinInput) pinInput.addEventListener("keydown", (e) => { if (e.key === "Enter") unlockWithPin(); });
+  });
 
   return {
     login, logout, go, toggleSidebar, closeSidebar, closeModal,
+    savePinSetup, unlockWithPin,
     filterBookings, viewBooking, refundBooking, flyToBooking,
     suspendDriver, reinstateDriver, manageDriverBank, saveDriverBank,
     adjustUser, suspendUser, reinstateUser, manageUserBank, saveUserBank,

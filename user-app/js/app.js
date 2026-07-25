@@ -3,7 +3,7 @@ const WayApp = (function () {
   const MAIN_TABS = ["home", "activity", "wallet", "chat", "profile"];
 
   const state = {
-    phone: "",
+    phone: "", channel: "phone", signupName: null,
     ride: { pickup: null, drop: null, vehicle: "moto", fare: 0, distanceKm: 0, payMethod: "wallet" },
     food: { payMethod: "wallet" },
     package: { pickup: null, drop: null, fare: 0, payMethod: "wallet" },
@@ -41,6 +41,7 @@ const WayApp = (function () {
     const target = $("screen-" + id); if (target) target.classList.add("active");
     $("mainTabbar").classList.toggle("visible", MAIN_TABS.includes(id));
     if (MAIN_TABS.includes(id)) document.querySelectorAll(".tab-item").forEach((b) => b.classList.toggle("active", b.dataset.tab === id));
+    if (!["login", "pin-lock", "pin-setup"].includes(id)) WAYME.touchUserSession();
     if (id === "home") { refreshWalletUI(); renderRecentHome(); setGreeting(); }
     if (id === "activity") renderActivity();
     if (id === "wallet") { refreshWalletUI(); renderWalletTx(); }
@@ -58,35 +59,129 @@ const WayApp = (function () {
     $("homeGreeting").textContent = h < 11 ? "Good morning 👋" : h < 15 ? "Good afternoon 👋" : h < 19 ? "Good evening 👋" : "Good night 👋";
   }
   function renderProfile() {
-    const profile = WAYME.getUserProfile();
-    if (profile) $("profileBankInfo").textContent = profile.bankName + " · " + profile.bankAccount;
+    const profile = WAYME.getCurrentUser();
+    if (profile) {
+      $("profileBankInfo").textContent = profile.bankName + " · " + profile.bankAccount;
+      $("profileName").textContent = profile.name;
+      $("profilePhone").textContent = profile.phone;
+      $("profileAvatar").textContent = (profile.name || "?").trim().charAt(0).toUpperCase();
+    }
   }
   function isAccountSuspended() {
-    const profile = WAYME.getUserProfile();
+    const profile = WAYME.getCurrentUser();
     if (profile && profile.suspended) { toast("🚫 Your account is suspended by WAYME admin — contact support"); return true; }
     return false;
   }
 
-  function requestOtp() {
-    const phone = $("phoneInput").value.trim();
-    if (!phone) { toast("Enter your phone number"); return; }
-    state.phone = phone; $("phoneEcho").textContent = "+62 " + phone;
-    $("loginStep1").style.display = "none"; $("loginStep2").style.display = "block";
+  function selectChannel(ch) {
+    state.channel = ch;
+    $("tabPhone").classList.toggle("active", ch === "phone");
+    $("tabEmail").classList.toggle("active", ch === "email");
+    $("phoneFieldWrap").style.display = ch === "phone" ? "block" : "none";
+    $("emailFieldWrap").style.display = ch === "email" ? "block" : "none";
   }
-  function backToPhone() { $("loginStep1").style.display = "block"; $("loginStep2").style.display = "none"; }
+  function checkIdentifier() {
+    let identifier;
+    if (state.channel === "email") {
+      const email = $("emailInput").value.trim();
+      if (!email || !email.includes("@")) { toast("Enter a valid email address"); return; }
+      identifier = email.toLowerCase();
+    } else {
+      const local = $("phoneInput").value.trim();
+      if (!local) { toast("Enter your phone number"); return; }
+      identifier = "+62 " + local;
+    }
+    state.phone = identifier; // reused by the existing returning-login OTP step below
+    const existing = WAYME.findUserByIdentifier(identifier);
+    $("loginStep1").style.display = "none";
+    if (existing) {
+      $("phoneEcho").textContent = identifier;
+      $("loginStep2").style.display = "block";
+    } else {
+      $("loginStep1b").style.display = "block";
+    }
+  }
+  function backToPhone() {
+    $("loginStep1").style.display = "block";
+    $("loginStep2").style.display = "none";
+    $("loginStep1b").style.display = "none";
+    $("loginStep1c").style.display = "none";
+  }
   function verifyOtp() {
     const otp = $("otpInput").value.trim();
     if (otp.length < 4) { toast("Enter the 4-digit code"); return; }
-    $("profilePhone").textContent = "+62 " + (state.phone || "812 3456 7890");
+    const r = WAYME.loginUser(state.phone);
+    if (!r.ok) {
+      toast(r.reason === "suspended" ? "🚫 This account is suspended — contact support" : "Couldn't find that account — check the number and try again");
+      return;
+    }
+    afterLogin();
+  }
+  async function sendSignupCode() {
+    const name = $("signupName").value.trim();
+    if (!name) { toast("Enter your name"); return; }
+    state.signupName = name;
+    toast("Sending your verification code…");
+    const result = await WayVerify.sendCode(state.phone, state.channel === "email" ? "email" : "whatsapp");
+    if (!result.ok) { toast("Couldn't send the code — try again"); return; }
+    $("loginStep1b").style.display = "none";
+    $("loginStep1c").style.display = "block";
+    if (result.delivered) {
+      $("verifyChannelNote").textContent = (state.channel === "email" ? "We emailed a code to " : "We sent a WhatsApp code to ") + state.phone;
+    } else {
+      $("verifyChannelNote").innerHTML = "Demo mode — real " + (state.channel === "email" ? "email" : "WhatsApp") + " delivery isn't configured on the server, so here's your code: <strong>" + result.demoCode + "</strong>";
+    }
+  }
+  async function verifySignupCode() {
+    const code = $("signupCodeInput").value.trim();
+    if (!code) { toast("Enter the code"); return; }
+    const result = await WayVerify.verifyCode(state.phone, code);
+    if (!result.ok) { toast(result.reason === "expired" ? "Code expired — go back and resend" : "Incorrect code"); return; }
+    const r = WAYME.registerUser(state.signupName, state.phone);
+    if (!r.ok) { toast("That's already registered — go back and log in instead"); return; }
+    toast("Welcome to WAYME, " + state.signupName + "! Rp100,000 added to get you started.");
+    afterLogin();
+  }
+  function afterLogin() {
+    $("phoneInput").value = ""; $("emailInput").value = ""; $("otpInput").value = ""; $("signupName").value = ""; $("signupCodeInput").value = "";
+    const uid = WAYME.getCurrentUserId();
+    if (uid && !WAYME.hasUserPin(uid)) { go("pin-setup"); return; }
+    go("home");
+  }
+  async function savePinSetup() {
+    const pin = $("pinSetupInput").value.trim(); const confirm = $("pinSetupConfirm").value.trim();
+    if (!/^\d{4}$/.test(pin)) { toast("Enter a 4-digit PIN"); return; }
+    if (pin !== confirm) { toast("PINs don't match — try again"); return; }
+    const uid = WAYME.getCurrentUserId();
+    await WAYME.setUserPin(uid, pin);
+    $("pinSetupInput").value = ""; $("pinSetupConfirm").value = "";
+    toast("PIN set — your account is protected on this device");
+    go("home");
+  }
+  function showPinLock() {
+    const u = WAYME.getCurrentUser();
+    if (u) { $("pinLockName").textContent = u.name; $("pinLockAvatar").textContent = (u.name || "?").trim().charAt(0).toUpperCase(); }
+    $("pinLockInput").value = "";
+    go("pin-lock");
+  }
+  async function unlockWithPin() {
+    const pin = $("pinLockInput").value.trim();
+    const uid = WAYME.getCurrentUserId();
+    const ok = await WAYME.verifyUserPin(uid, pin);
+    if (!ok) { toast("Incorrect PIN — try again"); $("pinLockInput").value = ""; return; }
+    WAYME.touchUserSession();
+    $("pinLockInput").value = "";
     go("home");
   }
   function logout() {
-    $("loginStep1").style.display = "block"; $("loginStep2").style.display = "none";
-    $("phoneInput").value = ""; $("otpInput").value = ""; go("login");
+    WAYME.logoutUser();
+    $("loginStep1").style.display = "block"; $("loginStep2").style.display = "none"; $("loginStep1b").style.display = "none"; $("loginStep1c").style.display = "none";
+    $("phoneInput").value = ""; $("emailInput").value = ""; $("otpInput").value = ""; $("signupName").value = ""; $("signupCodeInput").value = "";
+    go("login");
   }
 
   function refreshWalletUI() {
-    const bal = WAYME.getWallet("user");
+    const bal = WAYME.getWallet(WAYME.getCurrentUserId());
     $("homeWalletBalance").textContent = WAYME.fmtIDR(bal);
     $("walletBalanceBig").textContent = WAYME.fmtIDR(bal);
     if ($("payWalletBalance")) $("payWalletBalance").textContent = "Balance " + WAYME.fmtIDR(bal);
@@ -102,9 +197,9 @@ const WayApp = (function () {
   }
   function pushTransaction(label, amount) { state.transactions.unshift({ label, amount, ts: Date.now() }); }
   function openTopUp() { openSheet("sheetTopUp"); }
-  function doTopUp(amount) { WAYME.topUp("user", amount); refreshWalletUI(); closeSheets(); toast("Topped up " + WAYME.fmtIDR(amount)); }
+  function doTopUp(amount) { WAYME.topUp(WAYME.getCurrentUserId(), amount); refreshWalletUI(); closeSheets(); toast("Topped up " + WAYME.fmtIDR(amount)); }
   function processPayment(amount, method, label) {
-    if (method === "wallet") { const r = WAYME.pay("user", amount); if (!r.ok) { toast("Insufficient wallet balance — top up first"); return false; } }
+    if (method === "wallet") { const r = WAYME.pay(WAYME.getCurrentUserId(), amount); if (!r.ok) { toast("Insufficient wallet balance — top up first"); return false; } }
     pushTransaction(label + " (" + method + ")", amount); refreshWalletUI(); return true;
   }
 
@@ -116,7 +211,7 @@ const WayApp = (function () {
     state.pendingPayMethod = current;
     document.querySelectorAll(".pay-option").forEach((el) => el.classList.toggle("selected", el.dataset.m === current));
     $("qrPreview").style.display = current === "qr" ? "block" : "none";
-    $("payWalletBalance").textContent = "Balance " + WAYME.fmtIDR(WAYME.getWallet("user"));
+    $("payWalletBalance").textContent = "Balance " + WAYME.fmtIDR(WAYME.getWallet(WAYME.getCurrentUserId()));
     openSheet("sheetPayment");
   }
   function selectPayMethod(m) {
@@ -188,7 +283,7 @@ const WayApp = (function () {
     if (isAccountSuspended()) return;
     const fare = WAYME.estimateFare(state.ride.vehicle, state.ride.distanceKm);
     state.ride.fare = fare;
-    const booking = WAYME.createBooking({ type: "ride", vehicle: state.ride.vehicle, pickup: state.ride.pickup, drop: state.ride.drop, fare, payMethod: state.ride.payMethod, user: "You" });
+    const booking = WAYME.createBooking({ type: "ride", vehicle: state.ride.vehicle, pickup: state.ride.pickup, drop: state.ride.drop, fare, payMethod: state.ride.payMethod, userId: WAYME.getCurrentUserId() });
     state.bookingId = booking.id; state.matchHandled = false;
     go("finding"); initFindingMap();
     state.matchTimer = setTimeout(() => simulateMatch(), 6000);
@@ -219,13 +314,14 @@ const WayApp = (function () {
     if (state.matchHandled) return;
     const existing = WAYME.getBooking(state.bookingId);
     if (!existing || existing.status !== "searching") return;
-    const booking = WAYME.updateBooking(state.bookingId, { status: "matched", driverName: "Andi Pratama", driverVehicle: "Honda Vario · B 3921 WAY", driverRating: 4.9 });
-    WAYME.setDriverOnline(true);
+    const demoDriver = WAYME.getDriverById(WAYME.DEMO_DRIVER_ID);
+    const booking = WAYME.updateBooking(state.bookingId, { status: "matched", driverId: WAYME.DEMO_DRIVER_ID, driverName: demoDriver.name, driverVehicle: demoDriver.vehicle, driverRating: demoDriver.rating });
+    WAYME.setDriverOnline(WAYME.DEMO_DRIVER_ID, true);
     const rawLat = state.ride.pickup.lat + (Math.random() - 0.5) * 0.01;
     const rawLng = state.ride.pickup.lng + (Math.random() - 0.5) * 0.01;
     const snapped = await WayMaps.snapToRoads([{ lat: rawLat, lng: rawLng }]);
     const dLat = snapped[0] ? snapped[0].lat : rawLat, dLng = snapped[0] ? snapped[0].lng : rawLng;
-    WAYME.updateDriverLocation(dLat, dLng);
+    WAYME.updateDriverLocation(WAYME.DEMO_DRIVER_ID, dLat, dLng);
     state.matchHandled = true; startTrip(booking);
   }
 
@@ -239,20 +335,20 @@ const WayApp = (function () {
     $("geofenceBanner").style.display = "none";
     state.tripPhase = "arriving";
     go("trip"); initTripMap(booking);
-    const driver = WAYME.getDriver();
-    const route = await WayMaps.computeRoute(driver, booking.pickup);
+    const driver = WAYME.getDriverById(booking.driverId);
+    const route = driver ? await WayMaps.computeRoute(driver, booking.pickup) : null;
     $("tripEta").textContent = route ? route.durationText : "~4 min";
   }
   function initTripMap(booking) {
-    const p = booking.pickup, d = booking.drop, driver = WAYME.getDriver();
+    const p = booking.pickup, d = booking.drop, driver = WAYME.getDriverById(booking.driverId);
     WayMaps.ready(() => {
       tripMap = WayMaps.createMap("mapTrip", p, 14);
       WayMaps.fitBounds(tripMap, [p, d]);
       WayMaps.dotMarker(tripMap, p, "#0EA5E9");
       WayMaps.dotMarker(tripMap, d, "#FBBF24");
       geofenceCircle = WayMaps.circle(tripMap, d, 300, { strokeColor: "#FBBF24", fillColor: "#FBBF24", fillOpacity: 0.12, strokeWeight: 1.5 });
-      tripDriverMarker = WayMaps.emojiMarker(tripMap, driver, "🛵");
-      drawRoute(driver, p);
+      tripDriverMarker = WayMaps.emojiMarker(tripMap, driver || p, "🛵");
+      drawRoute(driver || p, p);
     });
   }
   async function drawRoute(from, to) {
@@ -521,8 +617,8 @@ const WayApp = (function () {
       }
       if ($("screen-chat-active").classList.contains("active")) renderChatMessages();
       if ($("screen-trip").classList.contains("active")) {
-        const driver = WAYME.getDriver();
-        if (tripDriverMarker) tripDriverMarker.setLatLng([driver.lat, driver.lng]);
+        const driver = WAYME.getDriverById(b.driverId);
+        if (tripDriverMarker && driver) tripDriverMarker.setLatLng([driver.lat, driver.lng]);
         if (b.status === "arrived" && state.tripPhase === "arriving") { state.tripPhase = "arrived"; $("tripStatusChip").textContent = "Driver arrived"; $("tripActionBtn").textContent = "Simulate: start trip"; }
         if (b.status === "ongoing" && state.tripPhase === "arrived") { state.tripPhase = "ongoing"; $("tripStatusChip").textContent = "On the way"; drawRoute(b.pickup, b.drop); }
         if (b.status === "completed" && state.tripPhase !== "done") completeTrip(b);
@@ -531,7 +627,18 @@ const WayApp = (function () {
   }
 
   function init() {
-    setTimeout(() => go("login"), 1500);
+    setTimeout(() => {
+      const uid = WAYME.getCurrentUserId();
+      if (!uid) { go("login"); return; }
+      if (WAYME.isUserSessionExpired()) {
+        WAYME.logoutUser();
+        toast("You were logged out after 2 weeks of inactivity — please log in again.");
+        go("login");
+        return;
+      }
+      if (WAYME.hasUserPin(uid)) showPinLock();
+      else go("pin-setup");
+    }, 1500);
     const ann = WAYME.getAnnouncement(); if (ann) state.lastAnnouncementTs = ann.ts;
     wireRealtime();
     $("ratingStars").addEventListener("click", (e) => {
@@ -539,11 +646,13 @@ const WayApp = (function () {
       document.querySelectorAll("#ratingStars span").forEach((s) => s.classList.toggle("on", Number(s.dataset.v) <= Number(v)));
     });
     $("chatInput").addEventListener("keydown", (e) => { if (e.key === "Enter") sendChat(); });
+    $("pinLockInput").addEventListener("keydown", (e) => { if (e.key === "Enter") unlockWithPin(); });
   }
   document.addEventListener("DOMContentLoaded", init);
 
   return {
-    go, switchTab, requestOtp, verifyOtp, backToPhone, logout,
+    go, switchTab, selectChannel, checkIdentifier, verifyOtp, backToPhone, sendSignupCode, verifySignupCode, logout,
+    savePinSetup, unlockWithPin,
     openRideSetup: () => go("ride-setup"), selectVehicle, confirmRide, cancelSearch,
     minimizeTrip, sosAlert, callDriver, openChat, driverSimAdvance, sendChat, finishRating,
     openPaymentSheet, selectPayMethod, confirmPayMethod, closeSheets, openTopUp, doTopUp,

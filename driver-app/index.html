@@ -5,6 +5,13 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, viewport-fit=cover" />
 <title>WAYME — Partner</title>
 <meta name="theme-color" content="#075985" />
+<link rel="manifest" href="manifest.json" />
+<link rel="icon" href="../shared/icons/icon-dark-192.png" />
+<link rel="apple-touch-icon" href="../shared/icons/apple-touch-icon-dark.png" />
+<meta name="mobile-web-app-capable" content="yes" />
+<meta name="apple-mobile-web-app-capable" content="yes" />
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+<meta name="apple-mobile-web-app-title" content="WAYME Partner" />
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@500;600;700&family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
 <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
@@ -40,15 +47,71 @@
       </div>
       <h2 style="margin-top:18px;">Partner sign in</h2>
       <p class="muted">Accept rides, deliveries and grow your earnings.</p>
-      <label class="label-eyebrow">Phone number</label>
-      <div style="display:flex; gap:8px; margin-top:8px;">
-        <div class="input" style="width:64px; text-align:center; flex-shrink:0;">🇮🇩 +62</div>
-        <input class="input" id="phoneInput" type="tel" placeholder="813 9988 7766" inputmode="numeric" />
+      <div id="driverLoginStep1">
+        <div class="channel-tabs">
+          <button type="button" class="channel-tab active" id="tabPhone" onclick="DriverApp.selectChannel('phone')">📱 Phone</button>
+          <button type="button" class="channel-tab" id="tabEmail" onclick="DriverApp.selectChannel('email')">✉️ Email</button>
+        </div>
+        <div id="phoneFieldWrap">
+          <label class="label-eyebrow">Phone number</label>
+          <div style="display:flex; gap:8px; margin-top:8px;">
+            <div class="input" style="width:64px; text-align:center; flex-shrink:0;">🇮🇩 +62</div>
+            <input class="input" id="phoneInput" type="tel" placeholder="813 9988 7766" inputmode="numeric" />
+          </div>
+        </div>
+        <div id="emailFieldWrap" style="display:none;">
+          <label class="label-eyebrow">Email address</label>
+          <input class="input" id="emailInput" type="email" placeholder="you@example.com" style="margin-top:8px;" />
+        </div>
+        <button class="btn btn-primary btn-block" style="margin-top:18px;" onclick="DriverApp.checkIdentifier()">Continue</button>
       </div>
-      <label class="label-eyebrow" style="margin-top:12px; display:block;">Vehicle plate</label>
-      <input class="input" id="plateInput" placeholder="B 3921 WAY" style="margin-top:6px;" />
-      <button class="btn btn-primary btn-block" style="margin-top:18px;" onclick="DriverApp.login()">Go online-ready</button>
-      <p class="fineprint">Demo mode — no real verification is performed.</p>
+      <div id="driverLoginStep2" style="display:none;">
+        <p class="muted">Welcome back, <strong id="returningDriverName"></strong></p>
+        <p class="muted" style="margin-top:2px;" id="returningDriverVehicle"></p>
+        <button class="btn btn-primary btn-block" style="margin-top:18px;" onclick="DriverApp.continueLogin()">Continue</button>
+        <button class="btn btn-ghost btn-block" onclick="DriverApp.backToPhone()">Use a different number/email</button>
+      </div>
+      <div id="driverLoginStep2b" style="display:none;">
+        <p class="muted" style="margin-bottom:10px;">We don't recognize that yet — let's set up your partner account.</p>
+        <label class="label-eyebrow">Full name</label>
+        <input class="input" id="signupDriverName" placeholder="Full name" style="margin-top:6px;" />
+        <label class="label-eyebrow" style="margin-top:12px; display:block;">Vehicle</label>
+        <input class="input" id="plateInput" placeholder="Honda Vario · B 3921 WAY" style="margin-top:6px;" />
+        <button class="btn btn-primary btn-block" style="margin-top:18px;" onclick="DriverApp.sendSignupCode()">Send verification code</button>
+        <button class="btn btn-ghost btn-block" onclick="DriverApp.backToPhone()">Use a different number/email</button>
+      </div>
+      <div id="driverLoginStep2c" style="display:none;">
+        <p class="muted" id="verifyChannelNote" style="margin-bottom:10px;"></p>
+        <label class="label-eyebrow">Enter the code</label>
+        <input class="input" id="signupCodeInput" type="tel" placeholder="••••••" maxlength="6" inputmode="numeric" style="margin-top:8px; letter-spacing:8px; font-size:20px; text-align:center;" />
+        <button class="btn btn-primary btn-block" style="margin-top:18px;" onclick="DriverApp.verifySignupCode()">Verify &amp; create account</button>
+        <button class="btn btn-ghost btn-block" onclick="DriverApp.backToPhone()">Start over</button>
+      </div>
+      <p class="fineprint">New-partner codes are real — sent via WhatsApp or email if the server's configured for it, shown on-screen otherwise.</p>
+    </div>
+  </section>
+
+  <section class="screen" id="screen-pin-lock">
+    <div class="scroll-body" style="justify-content:center; display:flex; flex-direction:column; align-items:center; flex:1; text-align:center;">
+      <div class="avatar" style="width:64px; height:64px; display:flex; align-items:center; justify-content:center; font-size:26px; background:var(--sky-900); color:white; margin-bottom:14px;" id="pinLockAvatar">?</div>
+      <h2 style="margin:0;">Welcome back, <span id="pinLockName">there</span></h2>
+      <p class="muted" style="margin-top:4px;">Enter your PIN to continue</p>
+      <input class="input" id="pinLockInput" type="password" placeholder="••••" maxlength="4" inputmode="numeric" style="margin-top:18px; letter-spacing:10px; font-size:22px; text-align:center; max-width:200px;" />
+      <button class="btn btn-primary btn-block" style="margin-top:18px; max-width:280px;" onclick="DriverApp.unlockWithPin()">Unlock</button>
+      <button class="btn btn-ghost" style="margin-top:8px;" onclick="DriverApp.logout()">Not you? Log out</button>
+    </div>
+  </section>
+
+  <section class="screen" id="screen-pin-setup">
+    <div class="scroll-body" style="justify-content:center; display:flex; flex-direction:column; align-items:center; flex:1; text-align:center;">
+      <span style="font-size:40px;">🔒</span>
+      <h2 style="margin:10px 0 4px;">Set up a PIN</h2>
+      <p class="muted">Protects your partner account on this device. You'll stay signed in — this PIN just unlocks the app when you come back, unless it's been over 2 weeks since you last used WAYME.</p>
+      <label class="label-eyebrow" style="margin-top:18px; align-self:flex-start;">Choose a 4-digit PIN</label>
+      <input class="input" id="pinSetupInput" type="password" placeholder="••••" maxlength="4" inputmode="numeric" style="margin-top:6px; letter-spacing:10px; font-size:22px; text-align:center; max-width:200px;" />
+      <label class="label-eyebrow" style="margin-top:12px; align-self:flex-start;">Confirm PIN</label>
+      <input class="input" id="pinSetupConfirm" type="password" placeholder="••••" maxlength="4" inputmode="numeric" style="margin-top:6px; letter-spacing:10px; font-size:22px; text-align:center; max-width:200px;" />
+      <button class="btn btn-primary btn-block" style="margin-top:18px; max-width:280px;" onclick="DriverApp.savePinSetup()">Set PIN</button>
     </div>
   </section>
 
@@ -103,8 +166,8 @@
     <div class="topbar"><h2>Profile</h2></div>
     <div class="scroll-body">
       <div class="card" style="display:flex; align-items:center; gap:14px;">
-        <div class="avatar" style="width:56px; height:56px; display:flex; align-items:center; justify-content:center; font-size:22px; background:var(--sky-900); color:white;">A</div>
-        <div><h3 style="margin:0;">Andi Pratama</h3><p class="muted" style="margin:2px 0 0;" id="profilePlate">Honda Vario · B 3921 WAY</p></div>
+        <div class="avatar" id="profileAvatar" style="width:56px; height:56px; display:flex; align-items:center; justify-content:center; font-size:22px; background:var(--sky-900); color:white;">A</div>
+        <div><h3 style="margin:0;" id="profileName">Andi Pratama</h3><p class="muted" style="margin:2px 0 0;" id="profilePlate">Honda Vario · B 3921 WAY</p></div>
       </div>
       <div class="card" style="margin-top:12px; display:flex; justify-content:space-between; align-items:center;">
         <div><span class="label-eyebrow">Payout bank account</span><p style="margin:4px 0 0; font-weight:600;" id="profileBankInfo">—</p></div>
@@ -179,7 +242,13 @@
 <script src="https://cdn.socket.io/4.7.5/socket.io.min.js"></script>
 <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
 <script src="../shared/js/mock-backend.js"></script>
+<script src="../shared/js/verify-service.js"></script>
 <script src="../shared/js/maps-service.js"></script>
 <script src="js/app.js"></script>
+<script>
+  if ("serviceWorker" in navigator) {
+    window.addEventListener("load", () => navigator.serviceWorker.register("sw.js").catch(() => {}));
+  }
+</script>
 </body>
 </html>

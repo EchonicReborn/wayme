@@ -1,0 +1,18 @@
+{
+  "name": "WAYME",
+  "short_name": "WAYME",
+  "description": "Ride-hailing, food delivery, package shipping, and stay bookings — one app, one wallet.",
+  "start_url": "./index.html",
+  "scope": "./",
+  "id": "wayme-user-app",
+  "display": "standalone",
+  "orientation": "portrait",
+  "background_color": "#F5FBFF",
+  "theme_color": "#0EA5E9",
+  "icons": [
+    { "src": "../shared/icons/icon-light-192.png", "sizes": "192x192", "type": "image/png", "purpose": "any" },
+    { "src": "../shared/icons/icon-light-512.png", "sizes": "512x512", "type": "image/png", "purpose": "any" },
+    { "src": "../shared/icons/icon-light-192-maskable.png", "sizes": "192x192", "type": "image/png", "purpose": "maskable" },
+    { "src": "../shared/icons/icon-light-512-maskable.png", "sizes": "512x512", "type": "image/png", "purpose": "maskable" }
+  ]
+}

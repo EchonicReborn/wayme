@@ -103,3 +103,7 @@
 .settings-row{text-align:left; padding:14px 4px; border:none; background:none; border-bottom:1px solid var(--sky-100); font-size:14.5px; cursor:pointer; color:var(--ink-900);}
 
 .leaflet-top, .leaflet-bottom{z-index:12 !important;}
+
+.channel-tabs{display:flex; gap:8px; margin-bottom:14px;}
+.channel-tab{flex:1; border:1.5px solid var(--sky-100); background:white; color:var(--ink-700); font-size:13px; font-weight:600; padding:10px; border-radius:var(--r-pill); cursor:pointer;}
+.channel-tab.active{background:var(--sky-500); border-color:var(--sky-500); color:white;}
