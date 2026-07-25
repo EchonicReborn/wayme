@@ -31,8 +31,8 @@
    ========================================================= */
 
 const WAYME = (function () {
-  const SERVER_URL = "http://localhost:3000"; // <-- point this at your running server
-  const ACCESS_KEY = "wayme-demo-2026"; // <-- must match ACCESS_KEY (or WAYME_ACCESS_KEY env var) in server/server.js
+  const SERVER_URL = "https://wayme-qc0u.onrender.com"; // <-- point this at your running server
+  const ACCESS_KEY = "f11579ec31f35a63d5e636e6b70bae3d"; // <-- must match ACCESS_KEY (or WAYME_ACCESS_KEY env var) in server/server.js
 
   const HOME_LAT = -6.9932, HOME_LNG = 110.4203;
   const DEMO_DRIVER_ID = "d_demo001";
