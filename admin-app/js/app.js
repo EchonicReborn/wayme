@@ -36,13 +36,18 @@ const AdminApp = (function () {
     document.querySelectorAll(".admin-screen").forEach((s) => s.classList.remove("active"));
     $("screen-" + id).classList.add("active");
   }
+  function hideAuthScreensAndEnterDashboard() {
+    document.querySelectorAll(".admin-screen").forEach((s) => s.classList.remove("active"));
+    $("adminShell").style.display = "flex";
+    go("overview");
+  }
 
   function login() {
     $("screen-login").classList.remove("active");
     try { localStorage.setItem("wayme_admin_session", "1"); } catch (e) {}
     touchAdminSession();
     if (!hasAdminPin()) { showAuthScreen("pin-setup"); return; }
-    $("adminShell").style.display = "flex"; go("overview");
+    hideAuthScreensAndEnterDashboard();
   }
   function logout() {
     try { localStorage.removeItem("wayme_admin_session"); } catch (e) {}
@@ -57,7 +62,7 @@ const AdminApp = (function () {
     await setAdminPinValue(pin);
     $("pinSetupInput").value = ""; $("pinSetupConfirm").value = "";
     toast("PIN set — the admin dashboard is protected on this device");
-    $("adminShell").style.display = "flex"; go("overview");
+    hideAuthScreensAndEnterDashboard();
   }
   async function unlockWithPin() {
     const pin = $("pinLockInput").value.trim();
@@ -65,7 +70,7 @@ const AdminApp = (function () {
     if (!ok) { toast("Incorrect PIN — try again"); $("pinLockInput").value = ""; return; }
     touchAdminSession();
     $("pinLockInput").value = "";
-    $("adminShell").style.display = "flex"; go("overview");
+    hideAuthScreensAndEnterDashboard();
   }
 
   function go(panel) {
